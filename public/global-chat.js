@@ -93,7 +93,7 @@
 
             var modal = document.createElement('div');
             modal.id = 'musifystar-global-chat-modal';
-            modal.className = 'fixed inset-0 z-[99999] flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in select-none';
+            modal.className = 'fixed inset-0 z-[99999] bg-[#07090e] flex flex-col select-none overflow-hidden h-[100dvh] max-h-[100dvh] animate-fade-in';
 
             // Anti-DevTools & Anti-Inspection Protections on Chat Interface
             modal.oncontextmenu = function(e) {
@@ -123,49 +123,50 @@
             var isMasterAdmin = (u.email || u.rawEmail || '').toLowerCase().trim() === 'jrnabil570@gmail.com';
 
             modal.innerHTML = `
-            <div class="relative w-full max-w-xl h-[92vh] sm:h-[86vh] max-h-[760px] bg-[#0f1217] border border-slate-800/80 rounded-2xl sm:rounded-3xl flex flex-col shadow-2xl shadow-black/80 overflow-hidden">
-                <!-- Chat Header (Sleek Dark Obsidian Theme) -->
-                <div class="relative z-10 px-4 sm:px-6 py-3.5 bg-[#141720] border-b border-slate-800/80 flex items-center justify-between shrink-0 shadow-sm">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-slate-300 shadow-inner shrink-0">
-                            <i data-lucide="message-square" class="w-5 h-5 text-slate-300"></i>
+            <!-- Chat Header (Sleek Dark Obsidian Full Screen Sticky Header) -->
+            <div class="sticky top-0 z-20 px-4 sm:px-6 py-3.5 bg-[#141720] border-b border-slate-800/80 flex items-center justify-between shrink-0 shadow-md">
+                <div class="flex items-center gap-3">
+                    <button onclick="GlobalChat.close()" class="p-2 -ml-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/80 active:scale-95 transition-all cursor-pointer" title="Kembali">
+                        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                    </button>
+                    <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-slate-300 shadow-inner shrink-0">
+                        <i data-lucide="message-square" class="w-5 h-5 text-sky-400"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h2 class="text-base sm:text-lg font-bold text-slate-100 tracking-tight">Chat Global MusifyStar</h2>
+                            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-mono text-[9px] font-semibold">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                <span>LIVE</span>
+                            </span>
                         </div>
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <h2 class="text-sm sm:text-base font-bold text-slate-100 tracking-tight">Chat Global MusifyStar</h2>
-                                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-mono text-[9px] font-semibold">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                                    <span>LIVE</span>
-                                </span>
-                            </div>
-                            <p class="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-                                <i data-lucide="shield-check" class="w-3 h-3 text-slate-400"></i>
-                                <span>Ruang Obrolan Komunitas Musik &bull; Terenkripsi</span>
-                            </p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-1.5">
-                        <button onclick="GlobalChat.fetchMessages(false)" class="w-8 h-8 rounded-xl bg-slate-800/60 hover:bg-slate-700/80 border border-slate-700/50 active:scale-95 flex items-center justify-center text-slate-300 hover:text-white transition-all cursor-pointer" title="Segarkan Chat">
-                            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-                        </button>
-                        <button onclick="GlobalChat.close()" class="w-8 h-8 rounded-xl bg-slate-800/60 hover:bg-rose-500/20 hover:border-rose-500/40 border border-slate-700/50 active:scale-95 flex items-center justify-center text-slate-300 hover:text-rose-400 transition-all cursor-pointer" title="Tutup Chat">
-                            <i data-lucide="x" class="w-4 h-4"></i>
-                        </button>
+                        <p class="text-[10px] sm:text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
+                            <i data-lucide="shield-check" class="w-3.5 h-3.5 text-sky-400"></i>
+                            <span>Ruang Obrolan Komunitas Musik &bull; Terenkripsi</span>
+                        </p>
                     </div>
                 </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="GlobalChat.fetchMessages(false)" class="w-9 h-9 rounded-xl bg-slate-800/60 hover:bg-slate-700/80 border border-slate-700/50 active:scale-95 flex items-center justify-center text-slate-300 hover:text-white transition-all cursor-pointer" title="Segarkan Chat">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                    </button>
+                    <button onclick="GlobalChat.close()" class="w-9 h-9 rounded-xl bg-slate-800/60 hover:bg-rose-500/20 hover:border-rose-500/40 border border-slate-700/50 active:scale-95 flex items-center justify-center text-slate-300 hover:text-rose-400 transition-all cursor-pointer" title="Tutup Chat">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
 
-                <!-- Chat Messages Stream (Deep Dark Background, Eye-Friendly) -->
-                <div id="global-chat-stream" class="relative z-10 flex-1 overflow-y-auto p-4 sm:p-5 space-y-3 hide-scrollbar bg-[#0c0e14]">
-                    <div id="global-chat-loading" class="text-center py-20 text-slate-500 space-y-2">
-                        <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto text-slate-400"></i>
-                        <p class="text-xs font-medium">Memuat pesan obrolan...</p>
-                    </div>
+            <!-- Chat Messages Stream (Deep Dark Background, Eye-Friendly, Scrollable) -->
+            <div id="global-chat-stream" class="relative z-10 flex-1 overflow-y-auto p-4 sm:p-6 space-y-3.5 hide-scrollbar bg-[#0c0e14]">
+                <div id="global-chat-loading" class="text-center py-20 text-slate-500 space-y-2">
+                    <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto text-slate-400"></i>
+                    <p class="text-xs font-medium">Memuat pesan obrolan...</p>
                 </div>
+            </div>
 
-                <!-- Chat Input Bottom Bar -->
-                <div id="global-chat-bottom-bar" class="relative z-10 px-3.5 sm:px-5 py-3 bg-[#141720] border-t border-slate-800/80 shrink-0">
-                    ${GlobalChat.renderBottomBar(u, isMasterAdmin)}
-                </div>
+            <!-- Chat Input Bottom Bar -->
+            <div id="global-chat-bottom-bar" class="relative z-10 px-4 sm:px-6 py-3.5 bg-[#141720] border-t border-slate-800/80 shrink-0">
+                ${GlobalChat.renderBottomBar(u, isMasterAdmin)}
             </div>`;
 
             // Click outside backdrop closes modal

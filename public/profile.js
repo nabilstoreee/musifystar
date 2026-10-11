@@ -266,55 +266,70 @@ var Profile = {
 
         var modal = document.createElement('div');
         modal.id = 'musifystar-feedback-modal';
-        modal.className = 'fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/85 backdrop-blur-xl animate-fade-in';
+        modal.className = 'fixed inset-0 z-[700] bg-[#07090e] flex flex-col select-none overflow-hidden h-[100dvh] max-h-[100dvh] animate-fade-in';
         modal.innerHTML = `
-        <div class="w-full max-w-md bg-[#11131a] border border-white/20 rounded-3xl shadow-2xl overflow-hidden relative p-6 sm:p-7" style="box-shadow: 0 25px 50px -12px rgba(244,63,94,0.25);">
-            
-            <!-- Close Button -->
-            <button onclick="Profile.closeFeedbackModal()" class="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer">
+        <!-- Full Page Sticky Header -->
+        <div class="pt-5 sm:pt-6 pb-3.5 px-4 shrink-0 border-b border-white/10 bg-[#0d0f16]/95 backdrop-blur-md flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <button onclick="Profile.closeFeedbackModal()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center justify-center active:scale-95 transition-all cursor-pointer shadow-sm" title="Kembali">
+                    <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                </button>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-black text-white tracking-tight leading-tight flex items-center gap-2">
+                        <i data-lucide="message-square" class="w-5 h-5 text-rose-500"></i>
+                        <span>Pesan & Masuk Bantuan</span>
+                    </h1>
+                    <p class="text-white/60 text-xs leading-tight mt-0.5">Sampaikan saran, kritik, atau pesan untuk pengembang MusifyStar</p>
+                </div>
+            </div>
+            <button onclick="Profile.closeFeedbackModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer">
                 <i data-lucide="x" class="w-4 h-4"></i>
             </button>
+        </div>
 
-            <!-- Icon & Header -->
-            <div class="text-center mb-4 pt-1">
-                <div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-rose-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-rose-500/30">
-                    <i data-lucide="message-square" class="w-6 h-6"></i>
+        <!-- Full Page Scrollable Body -->
+        <div class="flex-1 overflow-y-auto overscroll-contain hide-scrollbar p-4 sm:p-6 flex items-center justify-center">
+            <div class="w-full max-w-md bg-[#11131a] border border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl relative space-y-4">
+                <div class="text-center mb-2">
+                    <div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-rose-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-rose-500/30">
+                        <i data-lucide="message-square" class="w-6 h-6"></i>
+                    </div>
+                    <h2 class="text-lg font-black text-white tracking-tight">Kirim Pesan & Masukan</h2>
+                    <p class="text-xs text-white/60 mt-1">Sampaikan saran, kritik, atau laporan kendala Anda.</p>
+                    ${u ? `<div class="mt-2 text-[11px] text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2.5 py-1 rounded-xl inline-flex items-center gap-1.5 font-medium">
+                        <i data-lucide="user-check" class="w-3.5 h-3.5"></i> Terautentikasi sebagai <strong>${u.username}</strong>
+                    </div>` : ''}
                 </div>
-                <h2 class="text-lg font-black text-white tracking-tight">Kirim Pesan & Masukan</h2>
-                <p class="text-xs text-white/60 mt-1">Sampaikan saran, kritik, atau pesan untuk pengembang MusifyStar.</p>
-                ${u ? `<div class="mt-2 text-[11px] text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2.5 py-1 rounded-xl inline-flex items-center gap-1.5 font-medium">
-                    <i data-lucide="user-check" class="w-3.5 h-3.5"></i> Terautentikasi sebagai <strong>${u.username}</strong>
-                </div>` : ''}
+
+                <!-- Error/Status Banner -->
+                <div id="fb-status-box" class="hidden mb-4 p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs flex items-center gap-2">
+                    <i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i>
+                    <span id="fb-status-msg"></span>
+                </div>
+
+                <!-- Form -->
+                <form onsubmit="Profile.submitFeedback(event)" class="space-y-3.5">
+                    <div>
+                        <label class="block text-xs font-semibold text-white/70 mb-1">Nama</label>
+                        <input type="text" id="fb-name" required value="${defaultName}" placeholder="Tuliskan nama Anda" class="w-full px-3.5 py-2.5 bg-black/50 border border-white/10 rounded-xl text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-rose-500 transition-colors" />
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-white/70 mb-1">Masukkan Pesan</label>
+                        <textarea id="fb-message" required rows="4" placeholder="Tuliskan saran, kritik, atau pesan yang ingin disampaikan..." class="w-full px-3.5 py-2.5 bg-black/50 border border-white/10 rounded-xl text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-rose-500 transition-colors resize-none"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-white/70 mb-1">Email / Kontak <span class="text-white/40 text-[11px]">(Opsional)</span></label>
+                        <input type="text" id="fb-contact" value="${defaultContact}" placeholder="+62 atau email@gmail.com" class="w-full px-3.5 py-2.5 bg-black/50 border border-white/10 rounded-xl text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-rose-500 transition-colors" />
+                    </div>
+
+                    <button type="submit" id="fb-submit-btn" class="w-full btn-chrome font-bold py-3.5 rounded-xl active:scale-95 transition-all text-center flex items-center justify-center gap-2 mt-2 shadow-lg cursor-pointer">
+                        <i data-lucide="send" class="w-4 h-4"></i>
+                        <span>Kirim Pesan</span>
+                    </button>
+                </form>
             </div>
-
-            <!-- Error/Status Banner -->
-            <div id="fb-status-box" class="hidden mb-4 p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs flex items-center gap-2">
-                <i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i>
-                <span id="fb-status-msg"></span>
-            </div>
-
-            <!-- Form -->
-            <form onsubmit="Profile.submitFeedback(event)" class="space-y-3.5">
-                <div>
-                    <label class="block text-xs font-semibold text-white/70 mb-1">Nama <span class="text-rose-400"></span></label>
-                    <input type="text" id="fb-name" required value="${defaultName}" placeholder="Tuliskan nama Anda" class="w-full px-3.5 py-2.5 bg-black/50 border border-white/10 rounded-xl text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-rose-500 transition-colors" />
-                </div>
-
-                <div>
-                    <label class="block text-xs font-semibold text-white/70 mb-1">Masukkan Pesan <span class="text-rose-400"></span></label>
-                    <textarea id="fb-message" required rows="4" placeholder="Tuliskan saran, kritik, atau pesan yang ingin disampaikan..." class="w-full px-3.5 py-2.5 bg-black/50 border border-white/10 rounded-xl text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-rose-500 transition-colors resize-none"></textarea>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-semibold text-white/70 mb-1">Email / Nomer Jika Ingin Dibalas <span class="text-white/40 text-[11px]">(Opsional)</span></label>
-                    <input type="text" id="fb-contact" value="${defaultContact}" placeholder="+62 atau email@gmail.com" class="w-full px-3.5 py-2.5 bg-black/50 border border-white/10 rounded-xl text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-rose-500 transition-colors" />
-                </div>
-
-                <button type="submit" id="fb-submit-btn" class="w-full btn-chrome font-bold py-3.5 rounded-xl active:scale-95 transition-all text-center flex items-center justify-center gap-2 mt-2 shadow-lg cursor-pointer">
-                    <i data-lucide="send" class="w-4 h-4"></i>
-                    <span>Kirim Pesan</span>
-                </button>
-            </form>
         </div>`;
 
         document.body.appendChild(modal);
@@ -857,42 +872,57 @@ var Profile = {
 
         var modal = document.createElement('div');
         modal.id = 'musifystar-donation-modal';
-        modal.className = 'fixed inset-0 z-[250] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-xl animate-fade-in';
+        modal.className = 'fixed inset-0 z-[700] bg-[#07090e] flex flex-col select-none overflow-hidden h-[100dvh] max-h-[100dvh] animate-fade-in';
         modal.innerHTML = `
-        <div class="w-full max-w-sm sm:max-w-md bg-[#11131a] border border-white/20 rounded-3xl shadow-2xl overflow-hidden relative flex flex-col max-h-[92vh]" style="box-shadow: 0 25px 50px -12px rgba(245,158,11,0.25);">
-            <!-- Close Button -->
-            <button onclick="Profile.closeDonationModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer z-10">
+        <!-- Full Page Sticky Header -->
+        <div class="pt-5 sm:pt-6 pb-3.5 px-4 shrink-0 border-b border-white/10 bg-[#0d0f16]/95 backdrop-blur-md flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <button onclick="Profile.closeDonationModal()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center justify-center active:scale-95 transition-all cursor-pointer shadow-sm" title="Kembali">
+                    <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                </button>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-black text-amber-400 tracking-tight leading-tight flex items-center gap-2">
+                        <i data-lucide="heart-handshake" class="w-5 h-5 text-amber-400"></i>
+                        <span>${config.title || 'Dukung Pengembang MusifyStar'}</span>
+                    </h1>
+                    <p class="text-white/60 text-xs leading-tight mt-0.5">Donasi sukarela untuk biaya server & pengembangan aplikasi</p>
+                </div>
+            </div>
+            <button onclick="Profile.closeDonationModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer">
                 <i data-lucide="x" class="w-4 h-4"></i>
             </button>
+        </div>
 
-            <!-- Header -->
-            <div class="text-center p-5 pb-3 shrink-0">
-                <div class="w-11 h-11 mx-auto mb-2 rounded-2xl bg-gradient-to-tr from-amber-500 to-emerald-500 flex items-center justify-center text-white shadow-lg shadow-amber-500/30">
-                    <i data-lucide="heart-handshake" class="w-5 h-5"></i>
+        <!-- Full Page Scrollable Body -->
+        <div class="flex-1 overflow-y-auto overscroll-contain hide-scrollbar p-4 sm:p-6 max-w-lg mx-auto w-full space-y-4 pb-20">
+            <!-- Header Banner -->
+            <div class="text-center p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-amber-500/10 border border-amber-500/20">
+                <div class="w-12 h-12 mx-auto mb-2 rounded-2xl bg-gradient-to-tr from-amber-500 to-emerald-500 flex items-center justify-center text-white shadow-lg shadow-amber-500/30">
+                    <i data-lucide="heart-handshake" class="w-6 h-6"></i>
                 </div>
                 <h2 class="text-base sm:text-lg font-black text-white tracking-tight">${config.title || 'Dukung Pengembang MusifyStar'}</h2>
                 <p class="text-xs text-white/60 mt-1 max-w-xs mx-auto leading-relaxed">${config.description || 'Donasi sukarela Anda sangat berharga untuk biaya sewa server & pengembangan aplikasi MusifyStar.'}</p>
             </div>
 
             <!-- Subtab Switcher: QRIS vs Rekening Transfer -->
-            <div class="px-5 mb-3 shrink-0">
+            <div class="shrink-0">
                 <div class="grid grid-cols-2 p-1 bg-white/5 border border-white/10 rounded-2xl gap-1">
-                    <button id="don-tab-btn-qris" onclick="Profile.setDonationSubTab('qris')" class="py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer bg-gradient-to-r from-amber-500 to-emerald-500 text-black shadow-md">
-                        <i data-lucide="qr-code" class="w-3.5 h-3.5"></i>
+                    <button id="don-tab-btn-qris" onclick="Profile.setDonationSubTab('qris')" class="py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer bg-gradient-to-r from-amber-500 to-emerald-500 text-black shadow-md">
+                        <i data-lucide="qr-code" class="w-4 h-4"></i>
                         <span>Barcode QRIS</span>
                     </button>
-                    <button id="don-tab-btn-accounts" onclick="Profile.setDonationSubTab('accounts')" class="py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer text-white/70 hover:text-white hover:bg-white/5">
-                        <i data-lucide="credit-card" class="w-3.5 h-3.5"></i>
+                    <button id="don-tab-btn-accounts" onclick="Profile.setDonationSubTab('accounts')" class="py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer text-white/70 hover:text-white hover:bg-white/5">
+                        <i data-lucide="credit-card" class="w-4 h-4"></i>
                         <span>Rekening & E-Wallet</span>
                     </button>
                 </div>
             </div>
 
             <!-- Scrollable Body Content -->
-            <div class="flex-1 overflow-y-auto px-5 pb-5 space-y-3.5 hide-scrollbar">
+            <div class="space-y-3.5">
                 <!-- PANEL 1: QRIS VIEW -->
                 <div id="don-view-qris" class="space-y-3">
-                    <div class="w-full flex items-center justify-center overflow-hidden rounded-2xl select-none bg-white/5 p-2 border border-white/10" 
+                    <div class="w-full flex items-center justify-center overflow-hidden rounded-2xl select-none bg-white/5 p-3 border border-white/10" 
                          style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
                          oncontextmenu="return false;">
                         <img id="qris-img-display" 
@@ -900,7 +930,7 @@ var Profile = {
                              alt="QRIS MusifyStar" 
                              draggable="false"
                              oncontextmenu="return false;"
-                             class="w-full h-auto max-h-[46vh] object-contain rounded-xl shadow-2xl pointer-events-none select-none" 
+                             class="w-full h-auto max-h-[50vh] object-contain rounded-xl shadow-2xl pointer-events-none select-none" 
                              style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;pointer-events:none;"
                              onerror="if(this.src && !this.src.endsWith('/qris.png')){this.src='/qris.png';}else{this.onerror=null;this.parentElement.innerHTML='<p class=\\'text-xs text-rose-400 p-4 text-center\\'>Gagal memuat QRIS</p>';}" />
                     </div>
@@ -908,11 +938,11 @@ var Profile = {
                         Scan dengan GoPay, OVO, DANA, BCA, BRI, Mandiri, BNI, ShopeePay & semua bank / mobile banking di Indonesia.
                     </p>
                     <div class="grid grid-cols-2 gap-2 pt-1">
-                        <button id="btn-save-qris" onclick="Profile.downloadQRIS('${config.qrisUrl || '/qris.png'}', '${config.qrisFilename || 'QRIS-MusifyStar-Nabil.png'}')" class="py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-emerald-500 hover:opacity-95 active:scale-95 text-black text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-lg shadow-amber-500/20 cursor-pointer text-center">
+                        <button id="btn-save-qris" onclick="Profile.downloadQRIS('${config.qrisUrl || '/qris.png'}', '${config.qrisFilename || 'QRIS-MusifyStar-Nabil.png'}')" class="py-3 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-emerald-500 hover:opacity-95 active:scale-95 text-black text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-lg shadow-amber-500/20 cursor-pointer text-center">
                             <i data-lucide="download" class="w-4 h-4"></i>
                             <span>Simpan QRIS</span>
                         </button>
-                        <button onclick="Profile.closeDonationModal()" class="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border border-white/10 cursor-pointer text-center">
+                        <button onclick="Profile.closeDonationModal()" class="py-3 px-3 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border border-white/10 cursor-pointer text-center">
                             <i data-lucide="x" class="w-4 h-4"></i>
                             <span>Tutup</span>
                         </button>
@@ -928,7 +958,7 @@ var Profile = {
                         <span>${config.note}</span>
                     </div>` : ''}
                     <div class="pt-2">
-                        <button onclick="Profile.closeDonationModal()" class="w-full py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border border-white/10 cursor-pointer text-center">
+                        <button onclick="Profile.closeDonationModal()" class="w-full py-3 px-3 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border border-white/10 cursor-pointer text-center">
                             <i data-lucide="check" class="w-4 h-4 text-emerald-400"></i>
                             <span>Selesai</span>
                         </button>
@@ -1801,55 +1831,68 @@ var Profile = {
 
         var modal = document.createElement('div');
         modal.id = 'musifystar-admin-modal';
-        modal.className = 'fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/85 backdrop-blur-xl animate-fade-in';
+        modal.className = 'fixed inset-0 z-[700] bg-[#07090e] flex flex-col select-none overflow-hidden h-[100dvh] max-h-[100dvh] animate-fade-in';
         modal.innerHTML = `
-        <div class="w-full max-w-md bg-[#11131a] border border-white/20 rounded-3xl shadow-2xl overflow-hidden relative p-6 sm:p-7" style="box-shadow: 0 25px 50px -12px rgba(244,63,94,0.25);">
-            
-            <!-- Close Button -->
-            <button onclick="Profile.closeAdminModal()" class="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer">
+        <!-- Full Page Sticky Header -->
+        <div class="pt-5 sm:pt-6 pb-3.5 px-4 shrink-0 border-b border-white/10 bg-[#0d0f16]/95 backdrop-blur-md flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <button onclick="Profile.closeAdminModal()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center justify-center active:scale-95 transition-all cursor-pointer shadow-sm" title="Kembali">
+                    <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                </button>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-black text-white tracking-tight leading-tight flex items-center gap-2">
+                        <i data-lucide="shield-check" class="w-5 h-5 text-rose-500"></i>
+                        <span>Akses Administrator</span>
+                    </h1>
+                    <p class="text-white/60 text-xs leading-tight mt-0.5">${isSetup ? 'Pengaturan Awal: Buat Username & Password admin baru' : 'Masukkan kredensial Anda untuk melanjutkan'}</p>
+                </div>
+            </div>
+            <button onclick="Profile.closeAdminModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer">
                 <i data-lucide="x" class="w-4 h-4"></i>
             </button>
+        </div>
 
-            <!-- Icon & Header -->
-            <div class="text-center mb-6 pt-2">
-                <div class="w-14 h-14 mx-auto mb-3.5 rounded-2xl bg-gradient-to-tr from-rose-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-rose-500/30">
-                    <i data-lucide="lock" class="w-7 h-7"></i>
-                </div>
-                <h2 class="text-xl font-black text-white tracking-tight">Akses Administrator</h2>
-                <p class="text-xs text-white/60 mt-1">
-                    ${isSetup ? 'Pengaturan Awal: Buat Username & Password admin baru' : 'Masukkan kredensial Anda untuk melanjutkan'}
-                </p>
-            </div>
-
-            <!-- Error Banner -->
-            <div id="admin-login-error" class="hidden mb-4 p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs flex items-center gap-2">
-                <i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i>
-                <span id="admin-login-error-msg"></span>
-            </div>
-
-            <!-- Form -->
-            <form onsubmit="Profile.handleAdminAuth(event, ${isSetup})" class="space-y-4">
-                <div>
-                    <label class="block text-xs font-semibold text-white/70 mb-1.5 uppercase tracking-wider">Username</label>
-                    <div class="relative">
-                        <i data-lucide="user" class="w-4 h-4 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
-                        <input type="text" id="admin-input-user" required autocomplete="off" placeholder="Masukkan username" class="w-full pl-10 pr-4 py-3 bg-black/50 border border-white/10 rounded-xl text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-rose-500 transition-colors" />
+        <!-- Full Page Scrollable Body -->
+        <div class="flex-1 overflow-y-auto overscroll-contain hide-scrollbar p-4 sm:p-6 flex items-center justify-center">
+            <div class="w-full max-w-md bg-[#11131a] border border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl relative space-y-4">
+                <div class="text-center mb-4">
+                    <div class="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-rose-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-rose-500/30">
+                        <i data-lucide="lock" class="w-7 h-7"></i>
                     </div>
+                    <h2 class="text-xl font-black text-white tracking-tight">Login Admin MusifyStar</h2>
+                    <p class="text-xs text-white/60 mt-1">${isSetup ? 'Pengaturan Awal: Buat Username & Password admin baru' : 'Masukkan kredensial Anda untuk melanjutkan'}</p>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-semibold text-white/70 mb-1.5 uppercase tracking-wider">Password</label>
-                    <div class="relative">
-                        <i data-lucide="key" class="w-4 h-4 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
-                        <input type="password" id="admin-input-pass" required autocomplete="current-password" placeholder="Masukkan password" class="w-full pl-10 pr-4 py-3 bg-black/50 border border-white/10 rounded-xl text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-rose-500 transition-colors" />
+                <!-- Error Banner -->
+                <div id="admin-login-error" class="hidden mb-4 p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs flex items-center gap-2">
+                    <i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i>
+                    <span id="admin-login-error-msg"></span>
+                </div>
+
+                <!-- Form -->
+                <form onsubmit="Profile.handleAdminAuth(event, ${isSetup})" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-white/70 mb-1.5 uppercase tracking-wider">Username</label>
+                        <div class="relative">
+                            <i data-lucide="user" class="w-4 h-4 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                            <input type="text" id="admin-input-user" required autocomplete="off" placeholder="Masukkan username" class="w-full pl-10 pr-4 py-3 bg-black/50 border border-white/10 rounded-xl text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-rose-500 transition-colors" />
+                        </div>
                     </div>
-                </div>
 
-                <button type="submit" id="admin-submit-btn" class="w-full btn-chrome font-bold py-3.5 rounded-xl active:scale-95 transition-all text-center flex items-center justify-center gap-2 mt-2 shadow-lg">
-                    <i data-lucide="log-in" class="w-4 h-4"></i>
-                    <span>${isSetup ? 'Simpan & Masuk' : 'Masuk Admin'}</span>
-                </button>
-            </form>
+                    <div>
+                        <label class="block text-xs font-semibold text-white/70 mb-1.5 uppercase tracking-wider">Password</label>
+                        <div class="relative">
+                            <i data-lucide="key" class="w-4 h-4 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                            <input type="password" id="admin-input-pass" required autocomplete="current-password" placeholder="Masukkan password" class="w-full pl-10 pr-4 py-3 bg-black/50 border border-white/10 rounded-xl text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-rose-500 transition-colors" />
+                        </div>
+                    </div>
+
+                    <button type="submit" id="admin-submit-btn" class="w-full btn-chrome font-bold py-3.5 rounded-xl active:scale-95 transition-all text-center flex items-center justify-center gap-2 mt-2 shadow-lg">
+                        <i data-lucide="log-in" class="w-4 h-4"></i>
+                        <span>${isSetup ? 'Simpan & Masuk' : 'Masuk Admin'}</span>
+                    </button>
+                </form>
+            </div>
         </div>`;
 
         document.body.appendChild(modal);
@@ -1933,48 +1976,61 @@ var Profile = {
         if (!modal) return;
 
         modal.innerHTML = `
-        <div class="w-full max-w-md bg-[#11131a] border border-emerald-500/30 rounded-3xl shadow-2xl overflow-hidden relative p-6 sm:p-7" style="box-shadow: 0 25px 50px -12px rgba(16,185,129,0.25);">
-            
-            <!-- Close Button -->
-            <button onclick="Profile.closeAdminModal()" class="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer">
+        <!-- Full Page Sticky Header -->
+        <div class="pt-5 sm:pt-6 pb-3.5 px-4 shrink-0 border-b border-white/10 bg-[#0d0f16]/95 backdrop-blur-md flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <button onclick="Profile.closeAdminModal()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center justify-center active:scale-95 transition-all cursor-pointer shadow-sm" title="Kembali">
+                    <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                </button>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-black text-emerald-400 tracking-tight leading-tight flex items-center gap-2">
+                        <i data-lucide="shield-check" class="w-5 h-5 text-emerald-400"></i>
+                        <span>Verifikasi 2FA Admin</span>
+                    </h1>
+                    <p class="text-white/60 text-xs leading-tight mt-0.5">Masukkan 6 digit kode OTP dari Authenticator</p>
+                </div>
+            </div>
+            <button onclick="Profile.closeAdminModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer">
                 <i data-lucide="x" class="w-4 h-4"></i>
             </button>
+        </div>
 
-            <!-- Icon & Header -->
-            <div class="text-center mb-6 pt-2">
-                <div class="w-14 h-14 mx-auto mb-3.5 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/30">
-                    <i data-lucide="shield-check" class="w-7 h-7"></i>
-                </div>
-                <h2 class="text-xl font-black text-white tracking-tight">Verifikasi</h2>
-                <p class="text-xs text-white/60 mt-1">
-                    Masukkan 6 digit kode OTP dari Authenticator
-                </p>
-            </div>
-
-            <!-- Error Banner -->
-            <div id="admin-2fa-error" class="hidden mb-4 p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs flex items-center gap-2">
-                <i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i>
-                <span id="admin-2fa-error-msg"></span>
-            </div>
-
-            <!-- Form -->
-            <form onsubmit="Profile.handleVerify2FALogin(event, '${tempToken}')" class="space-y-4">
-                <div>
-                    <label class="block text-xs font-semibold text-white/70 mb-1.5 uppercase tracking-wider text-center">Kode OTP (6 Digit)</label>
-                    <input type="text" id="admin-otp-input" required maxlength="6" pattern="[0-9]{6}" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" class="w-full text-center text-2xl font-mono tracking-[0.4em] py-3 bg-black/50 border border-white/20 rounded-xl text-emerald-400 placeholder:text-white/20 focus:outline-none focus:border-emerald-500 transition-colors" autofocus />
+        <!-- Full Page Scrollable Body -->
+        <div class="flex-1 overflow-y-auto overscroll-contain hide-scrollbar p-4 sm:p-6 flex items-center justify-center">
+            <div class="w-full max-w-md bg-[#11131a] border border-emerald-500/30 rounded-3xl p-6 sm:p-7 shadow-2xl relative space-y-4">
+                <div class="text-center mb-4">
+                    <div class="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/30">
+                        <i data-lucide="shield-check" class="w-7 h-7"></i>
+                    </div>
+                    <h2 class="text-xl font-black text-white tracking-tight">Verifikasi Dua Langkah</h2>
+                    <p class="text-xs text-white/60 mt-1">Masukkan kode OTP dari aplikasi Authenticator Anda</p>
                 </div>
 
-                <button type="submit" id="admin-otp-submit-btn" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-95 text-white font-bold text-sm shadow-lg shadow-emerald-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer">
-                    <i data-lucide="check-circle" class="w-4 h-4"></i>
-                    <span>Verifikasi & Masuk</span>
-                </button>
+                <!-- Error Banner -->
+                <div id="admin-2fa-error" class="hidden mb-4 p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs flex items-center gap-2">
+                    <i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i>
+                    <span id="admin-2fa-error-msg"></span>
+                </div>
 
-                <div class="text-center pt-1">
-                    <button type="button" onclick="Profile.renderAdminLogin()" class="text-xs text-white/50 hover:text-white transition-all underline cursor-pointer">
-                        Kembali ke Login Username & Password
+                <!-- Form -->
+                <form onsubmit="Profile.handleVerify2FALogin(event, '${tempToken}')" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-white/70 mb-1.5 uppercase tracking-wider text-center">Kode OTP (6 Digit)</label>
+                        <input type="text" id="admin-otp-input" required maxlength="6" pattern="[0-9]{6}" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" class="w-full text-center text-2xl font-mono tracking-[0.4em] py-3 bg-black/50 border border-white/20 rounded-xl text-emerald-400 placeholder:text-white/20 focus:outline-none focus:border-emerald-500 transition-colors" autofocus />
+                    </div>
+
+                    <button type="submit" id="admin-otp-submit-btn" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-95 text-white font-bold text-sm shadow-lg shadow-emerald-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer">
+                        <i data-lucide="check-circle" class="w-4 h-4"></i>
+                        <span>Verifikasi & Masuk</span>
                     </button>
-                </div>
-            </form>
+
+                    <div class="text-center pt-1">
+                        <button type="button" onclick="Profile.renderAdminLogin()" class="text-xs text-white/50 hover:text-white transition-all underline cursor-pointer">
+                            Kembali ke Login Username & Password
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>`;
 
         lucide.createIcons();
@@ -2056,12 +2112,14 @@ var Profile = {
 
         var modal = document.createElement('div');
         modal.id = 'musifystar-admin-modal';
-        modal.className = 'fixed inset-0 z-[250] flex items-center justify-center p-2.5 sm:p-5 bg-black/85 backdrop-blur-xl animate-fade-in';
+        modal.className = 'fixed inset-0 z-[700] bg-[#07090e] flex flex-col select-none overflow-hidden h-[100dvh] max-h-[100dvh] animate-fade-in';
         modal.innerHTML = `
-        <div class="w-full max-w-4xl h-[90vh] max-h-[850px] bg-[#11131a] border border-white/20 rounded-3xl shadow-2xl overflow-hidden relative flex flex-col" style="box-shadow: 0 25px 60px -15px rgba(244,63,94,0.25);">
-            
-            <!-- Modal Header -->
-            <div class="px-5 py-3.5 border-b border-white/10 bg-white/[0.04] backdrop-blur-md flex items-center justify-between shrink-0">
+        <!-- Modal Header -->
+        <div class="px-4 sm:px-6 py-3.5 border-b border-white/10 bg-[#0d0f16]/95 backdrop-blur-md flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-3">
+                <button onclick="Profile.closeAdminModal()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center justify-center active:scale-95 transition-all cursor-pointer shadow-sm" title="Kembali">
+                    <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                </button>
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-500 to-purple-600 flex items-center justify-center text-white shadow-md shadow-rose-500/20 shrink-0">
                         <i data-lucide="shield-check" class="w-5 h-5"></i>
@@ -2076,15 +2134,16 @@ var Profile = {
                         <p class="text-xs text-white/60">MusifyStar StudioMusik &bull; Sesi Aktif</p>
                     </div>
                 </div>
-                <div class="flex items-center gap-2">
-                    <button onclick="Profile.refreshAdminData()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer" title="Perbarui Data">
-                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-                    </button>
-                    <button onclick="Profile.closeAdminModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer" title="Tutup">
-                        <i data-lucide="x" class="w-4 h-4"></i>
-                    </button>
-                </div>
             </div>
+            <div class="flex items-center gap-2">
+                <button onclick="Profile.refreshAdminData()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer" title="Perbarui Data">
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                </button>
+                <button onclick="Profile.closeAdminModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer" title="Tutup">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
 
             <!-- Tab Switcher Navigation -->
             <div class="px-5 py-2.5 bg-black/40 border-b border-white/10 flex items-center justify-between gap-3 text-xs shrink-0 overflow-x-auto hide-scrollbar">
@@ -2302,13 +2361,13 @@ var Profile = {
             </div>
 
             <!-- Footer with Logout -->
-            <div class="px-5 py-3 bg-black/40 border-t border-white/10 flex items-center justify-between text-xs shrink-0">
+            <div class="px-4 sm:px-6 py-3 bg-black/40 border-t border-white/10 flex items-center justify-between text-xs shrink-0">
                 <span class="text-white/40 text-[11px]">MusifyStar StudioMusik &bull; Server Engine v2.0</span>
                 <button onclick="Profile.adminLogout()" class="text-xs text-rose-400 hover:text-rose-300 font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-rose-500/10 active:scale-95 transition-all cursor-pointer">
                     <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Keluar (Logout)
                 </button>
             </div>
-        </div>`;
+        `;
 
         document.body.appendChild(modal);
         lucide.createIcons();

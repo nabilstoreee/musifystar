@@ -1783,28 +1783,34 @@ var Auth = {
 
         var modal = document.createElement('div');
         modal.id = 'avatar-picker-modal';
-        modal.className = 'fixed inset-0 z-[700] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in select-none';
+        modal.className = 'fixed inset-0 z-[700] bg-[#07090e] flex flex-col select-none overflow-hidden h-[100dvh] max-h-[100dvh] animate-fade-in';
         modal.innerHTML = `
-            <div class="w-full max-w-md bg-[#13151f] border border-white/15 rounded-3xl shadow-2xl overflow-hidden relative flex flex-col max-h-[88vh]">
-                <!-- Header -->
-                <div class="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
-                    <div class="flex items-center gap-3">
+            <!-- Header Bar -->
+            <div class="pt-6 sm:pt-7 pb-3.5 px-4 shrink-0 border-b border-white/10 shadow-2xl transition-all flex items-center justify-between bg-[#0d0f16]">
+                <div class="flex items-center gap-3">
+                    <button onclick="gid('avatar-picker-modal')?.remove()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center justify-center active:scale-95 transition-all cursor-pointer shadow-sm" title="Kembali">
+                        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                    </button>
+                    <div class="flex items-center gap-2.5">
                         <div class="w-9 h-9 rounded-2xl bg-[#ccff00]/15 border border-[#ccff00]/30 flex items-center justify-center text-[#ccff00] shrink-0">
                             <i data-lucide="palette" class="w-5 h-5"></i>
                         </div>
                         <div>
-                            <h2 class="text-base font-extrabold text-white tracking-tight leading-tight">Koleksi Avatar</h2>
-                            <p class="text-[11px] text-white/50 leading-tight mt-0.5">Pilih avatar keren untuk profil Anda</p>
+                            <h1 class="text-lg sm:text-xl font-black text-white tracking-tight leading-tight">Koleksi Avatar</h1>
+                            <p class="text-white/50 text-[11px] leading-tight mt-0.5">Pilih avatar keren untuk profil Anda</p>
                         </div>
                     </div>
-                    <button onclick="gid('avatar-picker-modal')?.remove()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer">
-                        <i data-lucide="x" class="w-4 h-4"></i>
-                    </button>
                 </div>
+                <button onclick="gid('avatar-picker-modal')?.remove()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
 
+            <!-- Scrollable Body -->
+            <div class="flex-1 overflow-y-auto overscroll-contain hide-scrollbar p-4 sm:p-6 max-w-3xl mx-auto w-full pb-32 space-y-4">
                 <!-- DUA TAB UTAMA: AVATAR GRATIS VS AVATAR VIP -->
-                <div class="px-4 pt-3 pb-2.5 bg-black/40 border-b border-white/10 space-y-2.5">
-                    <div class="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-white/[0.04] border border-white/10 text-xs">
+                <div class="p-3 sm:p-4 bg-[#13151f] border border-white/10 rounded-2xl shadow-xl space-y-2.5">
+                    <div class="grid grid-cols-2 gap-2 p-1 rounded-xl bg-black/40 border border-white/10 text-xs">
                         <button type="button" id="avtab-btn-gratis" onclick="Auth.setAvatarPickerTab('gratis')" 
                                 class="py-2.5 px-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 cursor-pointer bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 shadow-sm">
                             <i data-lucide="sparkles" class="w-4 h-4 text-emerald-400"></i>
@@ -1820,7 +1826,7 @@ var Auth = {
                     </div>
 
                     <!-- SUB-FILTER KHUSUS TAB VIP (CEWEK VS COWOK) -->
-                    <div id="av-subfilter-container" class="hidden flex items-center justify-between pt-0.5 px-1 animate-fade-in">
+                    <div id="av-subfilter-container" class="hidden flex items-center justify-between pt-1 px-1 animate-fade-in">
                         <span class="text-[10px] font-bold text-amber-300/80 uppercase tracking-wider flex items-center gap-1">
                             <i data-lucide="sparkle" class="w-3 h-3 text-amber-400"></i>
                             <span>Filter VIP:</span>
@@ -1842,20 +1848,23 @@ var Auth = {
                     </div>
                 </div>
 
-                <!-- Body (List Avatars Grid) -->
-                <div class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 hide-scrollbar">
-                    <div id="avatar-catalog-grid" class="grid grid-cols-3 gap-3">
-                        <div class="col-span-3 text-center py-8 text-white/40">
+                <!-- Catalog Grid Card -->
+                <div class="p-4 sm:p-5 bg-[#13151f] border border-white/10 rounded-3xl shadow-xl space-y-4">
+                    <div id="avatar-catalog-grid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3.5 sm:gap-4">
+                        <div class="col-span-full text-center py-8 text-white/40">
                             <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto text-[#ccff00] mb-2"></i>
                             <p class="text-xs">Memuat katalog avatar...</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Footer Action -->
-                <div class="p-4 border-t border-white/10 bg-white/[0.02] flex items-center justify-between text-xs">
-                    <span class="text-white/40 text-[11px]">Foto kustom? Gunakan tombol Custom</span>
-                    <button type="button" onclick="gid('avatar-picker-modal')?.remove(); Auth.triggerGalleryUpload();" class="px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/15 text-white font-bold active:scale-95 transition-all cursor-pointer">
+                <!-- Custom Upload Card -->
+                <div class="p-4 bg-[#13151f] border border-white/10 rounded-2xl shadow-xl flex items-center justify-between text-xs">
+                    <div>
+                        <p class="text-white font-bold">Foto Kustom Sendiri</p>
+                        <p class="text-white/40 text-[11px] mt-0.5">Unggah gambar langsung dari galeri HP atau komputer</p>
+                    </div>
+                    <button type="button" onclick="gid('avatar-picker-modal')?.remove(); Auth.triggerGalleryUpload();" class="px-4 py-2 rounded-xl bg-[#ccff00] text-black font-extrabold hover:bg-[#b8e600] active:scale-95 transition-all cursor-pointer shadow-md shrink-0">
                         Upload Sendiri
                     </button>
                 </div>
@@ -2199,53 +2208,58 @@ var Auth = {
 
         var modal = document.createElement('div');
         modal.id = 'border-picker-modal';
-        modal.className = 'fixed inset-0 z-[700] flex items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-md animate-fade-in select-none';
+        modal.className = 'fixed inset-0 z-[700] bg-[#07090e] flex flex-col select-none overflow-hidden h-[100dvh] max-h-[100dvh] animate-fade-in';
         modal.innerHTML = `
-            <div class="w-full max-w-md bg-[#13151f] border border-amber-400/40 rounded-3xl shadow-2xl overflow-hidden relative flex flex-col max-h-[92vh]">
-                <!-- Header -->
-                <div class="p-4 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-transparent shrink-0">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center text-black font-black shadow-md shadow-amber-500/30 shrink-0">
+            <!-- Header Bar -->
+            <div class="pt-6 sm:pt-7 pb-3.5 px-4 shrink-0 border-b border-white/10 shadow-2xl transition-all flex items-center justify-between bg-[#0d0f16]">
+                <div class="flex items-center gap-3">
+                    <button onclick="gid('border-picker-modal')?.remove()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center justify-center active:scale-95 transition-all cursor-pointer shadow-sm" title="Kembali">
+                        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                    </button>
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-9 h-9 rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center text-black font-black shadow-md shadow-amber-500/30 shrink-0">
                             <i data-lucide="shield" class="w-5 h-5"></i>
                         </div>
                         <div>
                             <div class="flex items-center gap-2">
-                                <h2 class="text-base font-extrabold text-white tracking-tight leading-tight">Border Profil Premium</h2>
+                                <h1 class="text-lg sm:text-xl font-black text-white tracking-tight leading-tight">Border Profil Premium</h1>
                                 <span class="text-[9px] font-black px-2 py-0.5 rounded-full ${isUserVip ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-black' : 'bg-white/10 text-white/50'} flex items-center gap-0.5">
                                     <i data-lucide="crown" class="w-2.5 h-2.5 ${isUserVip ? 'fill-black' : ''}"></i> ${isUserVip ? 'VIP AKTIF' : 'NON-VIP'}
                                 </span>
                             </div>
-                            <p class="text-[11px] text-white/50 leading-tight mt-0.5">Pilih kategori border profil eksklusif sesuai tingkatan VIP</p>
+                            <p class="text-white/50 text-[11px] leading-tight mt-0.5">Pilih kategori border profil eksklusif sesuai tingkatan VIP</p>
                         </div>
                     </div>
-                    <button onclick="gid('border-picker-modal')?.remove()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer">
-                        <i data-lucide="x" class="w-4 h-4"></i>
-                    </button>
                 </div>
+                <button onclick="gid('border-picker-modal')?.remove()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
 
-                <!-- Live Preview Section (Centered Avatar & Concentric Frame) -->
-                <div class="p-3.5 bg-black/50 border-b border-white/10 flex flex-col items-center justify-center relative overflow-hidden shrink-0">
+            <!-- Scrollable Body -->
+            <div class="flex-1 overflow-y-auto overscroll-contain hide-scrollbar p-4 sm:p-6 max-w-3xl mx-auto w-full pb-32 space-y-4">
+                <!-- Live Preview Section -->
+                <div class="p-5 bg-[#13151f] border border-amber-400/30 rounded-3xl shadow-xl flex flex-col items-center justify-center relative overflow-hidden">
                     <div class="absolute inset-0 bg-radial from-amber-500/10 via-transparent to-transparent pointer-events-none"></div>
-                    <div class="relative w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center my-1">
+                    <div class="relative w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center my-2">
                         <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden bg-black/90 flex items-center justify-center shadow-inner z-0">
                             <img src="${avatarUrl}" class="w-full h-full object-cover rounded-full" alt="Preview Foto" onerror="this.src='/logo.png'">
                         </div>
                         <img id="border-picker-live-frame" src="${selectedBorderObj.url || ''}" class="${selectedBorderObj.url ? '' : 'hidden'} pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[100px] h-[100px] sm:w-[124px] sm:h-[124px] max-w-none object-contain z-10 select-none drop-shadow-[0_0_18px_rgba(245,158,11,0.65)]" alt="Frame">
                     </div>
-                    <div class="text-center mt-0.5">
+                    <div class="text-center mt-1">
                         <p id="border-picker-live-title" class="text-xs font-black text-white flex items-center justify-center gap-1.5">
                             <span>Border: ${selectedBorderObj.name}</span>
                             <span class="text-[9px] px-1.5 py-0.2 rounded-full font-mono font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30">${selectedBorderObj.badge || selectedBorderObj.tier}</span>
                         </p>
-                        <p id="border-picker-live-desc" class="text-[10px] text-white/50 mt-0.5 max-w-xs truncate">${selectedBorderObj.desc}</p>
+                        <p id="border-picker-live-desc" class="text-[10px] text-white/50 mt-0.5 max-w-xs truncate mx-auto">${selectedBorderObj.desc}</p>
                     </div>
                 </div>
 
-                <!-- TAB PILIHAN SENDIRI: Border VIP Kebuka, Platinum, Master, Legend, Immortal, Semua -->
-                <div class="px-3 pt-2.5 pb-2 bg-[#10121a] border-b border-white/10 shrink-0">
+                <!-- TAB PILIHAN: Border VIP Kebuka, Platinum, Master, Legend, Immortal, Semua -->
+                <div class="p-3 bg-[#13151f] border border-white/10 rounded-2xl shadow-xl">
                     <div class="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pb-1 text-xs">
                         ${isUserVip ? `
-                        <!-- TAB KHUSUS: BORDER VIP KEBUKA (Hanya muncul jika VIP aktif) -->
                         <button type="button" onclick="Auth.switchBorderCategoryTab('unlocked')" id="border-cat-tab-unlocked" class="px-3 py-1.5 rounded-xl font-extrabold text-[11px] whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer shadow-sm ${Auth.borderActiveFilterTab === 'unlocked' ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-black shadow-amber-500/25' : 'bg-amber-400/10 text-amber-300 hover:bg-amber-400/20 border border-amber-400/30'}">
                             <i data-lucide="unlock" class="w-3.5 h-3.5"></i>
                             <span>Border VIP Kebuka</span>
@@ -2280,18 +2294,18 @@ var Auth = {
                     </div>
                 </div>
 
-                <!-- Scrollable Border List Cards Container (Dynamically Populated) -->
-                <div id="border-picker-cards-container" class="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-2.5 hide-scrollbar">
+                <!-- Border List Container -->
+                <div id="border-picker-cards-container" class="space-y-2.5">
                     <!-- Cards will be rendered by Auth.renderBorderCardsList() -->
                 </div>
 
                 <!-- Footer Call to Action (Beli VIP) -->
-                <div class="p-3.5 sm:p-4 border-t border-white/10 bg-gradient-to-t from-black via-black/80 to-transparent flex items-center justify-between gap-3 shrink-0">
+                <div class="p-4 bg-[#13151f] border border-amber-400/20 rounded-2xl shadow-xl flex items-center justify-between gap-3">
                     <div class="min-w-0">
                         <span class="text-xs font-black text-amber-300 block truncate flex items-center gap-1">
                             <i data-lucide="crown" class="w-3.5 h-3.5 text-amber-400"></i> ${isUserVip ? 'Status: VIP Aktif' : 'Upgrade Membership VIP'}
                         </span>
-                        <span class="text-[10px] text-white/50 block truncate">1 Bln: Platinum & Master • 2 Bln: + Legend • 5 Bln: + Immortal • Permanen: Bebas Semua</span>
+                        <span class="text-[10px] text-white/50 block truncate mt-0.5">1 Bln: Platinum & Master • 2 Bln: + Legend • 5 Bln: + Immortal • Permanen: Bebas Semua</span>
                     </div>
                     <button type="button" onclick="gid('border-picker-modal')?.remove(); if (typeof Profile !== 'undefined') Profile.openVipPackagesModal();" class="shrink-0 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-500 hover:to-yellow-500 text-black font-extrabold text-xs flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-[0_0_20px_rgba(245,158,11,0.4)]">
                         <i data-lucide="${isUserVip ? 'sparkles' : 'crown'}" class="w-3.5 h-3.5 fill-black"></i>
@@ -2914,66 +2928,75 @@ var Auth = {
 
         var modal = document.createElement('div');
         modal.id = 'rank-badge-modal';
-        modal.className = 'fixed inset-0 z-[750] flex items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-md animate-fade-in select-none';
+        modal.className = 'fixed inset-0 z-[750] bg-[#07090e] flex flex-col select-none overflow-hidden h-[100dvh] max-h-[100dvh] animate-fade-in';
         modal.innerHTML = `
-            <div class="w-full max-w-md bg-[#13151f] border border-sky-400/40 rounded-3xl shadow-2xl overflow-hidden relative flex flex-col max-h-[92vh]">
-                <!-- Header (Exact match with user screenshot) -->
-                <div class="p-4 border-b border-white/10 bg-gradient-to-r from-sky-500/15 via-blue-500/10 to-transparent flex items-center justify-between shrink-0">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-500 flex items-center justify-center text-white font-black shadow-md shadow-sky-500/30 shrink-0">
+            <!-- Header Bar -->
+            <div class="pt-6 sm:pt-7 pb-3.5 px-4 shrink-0 border-b border-white/10 shadow-2xl transition-all flex items-center justify-between bg-[#0d0f16]">
+                <div class="flex items-center gap-3">
+                    <button onclick="gid('rank-badge-modal')?.remove()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center justify-center active:scale-95 transition-all cursor-pointer shadow-sm" title="Kembali">
+                        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                    </button>
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-9 h-9 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-500 flex items-center justify-center text-white font-black shadow-md shadow-sky-500/30 shrink-0">
                             <i data-lucide="award" class="w-5 h-5"></i>
                         </div>
                         <div>
-                            <h2 class="text-base font-extrabold text-white tracking-tight leading-tight">Rank Badge Customisation</h2>
-                            <p class="text-[11px] text-white/50 leading-tight mt-0.5">Showcase an unlocked badge on your profile</p>
+                            <h1 class="text-lg sm:text-xl font-black text-white tracking-tight leading-tight">Rank Badge Customisation</h1>
+                            <p class="text-white/50 text-[11px] leading-tight mt-0.5">Tampilkan lencana eksklusif di profil & nama Anda</p>
                         </div>
                     </div>
-                    <button onclick="gid('rank-badge-modal')?.remove()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer">
-                        <i data-lucide="x" class="w-4 h-4"></i>
-                    </button>
                 </div>
+                <button onclick="gid('rank-badge-modal')?.remove()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
 
+            <!-- Scrollable Body -->
+            <div class="flex-1 overflow-y-auto overscroll-contain hide-scrollbar p-4 sm:p-6 max-w-3xl mx-auto w-full pb-32 space-y-4">
                 <!-- Banner Explanation Notice -->
-                <div class="p-3 bg-sky-500/10 border-b border-sky-500/20 px-4 text-[11px] text-sky-200 leading-relaxed shrink-0 flex items-start gap-2">
+                <div class="p-3.5 bg-sky-500/10 border border-sky-500/20 rounded-2xl text-[11px] text-sky-200 leading-relaxed flex items-start gap-2.5 shadow-md">
                     <i data-lucide="info" class="w-4 h-4 text-sky-400 shrink-0 mt-0.5"></i>
-                    <span>Selecting a badge only displays it next to your name and does not change your rank or stats. Badges unlock automatically as your listening time increases!</span>
+                    <span>Memilih lencana hanya menampilkan ikon di samping nama Anda di obrolan & profil, tanpa mengubah peringkat asli. Lencana terbuka otomatis seiring bertambahnya total durasi mendengarkan!</span>
                 </div>
 
                 <!-- User Listening Time & Progress Bar -->
-                <div class="p-3.5 bg-black/40 border-b border-white/10 space-y-2 shrink-0">
+                <div class="p-4 bg-[#13151f] border border-white/10 rounded-2xl shadow-xl space-y-2.5">
                     <div class="flex items-center justify-between text-xs font-bold">
-                        <span class="text-white/70 flex items-center gap-1">
-                            <i data-lucide="clock" class="w-3.5 h-3.5 text-sky-400"></i> Total Durasi Mendengarkan:
+                        <span class="text-white/70 flex items-center gap-1.5">
+                            <i data-lucide="clock" class="w-4 h-4 text-sky-400"></i> Total Durasi Mendengarkan:
                         </span>
-                        <span class="text-sky-300 font-mono">${formatBadgeDurationLabel(listeningSeconds)} (${Number(listeningSeconds).toLocaleString('id-ID')} Detik)</span>
+                        <span class="text-sky-300 font-mono text-xs sm:text-sm">${formatBadgeDurationLabel(listeningSeconds)} (${Number(listeningSeconds).toLocaleString('id-ID')} Detik)</span>
                     </div>
                     ${nextLocked ? `
                     <div>
-                        <div class="flex justify-between text-[10px] text-white/50 mb-1">
+                        <div class="flex justify-between text-[11px] text-white/60 mb-1">
                             <span>Target berikutnya: <strong class="text-white">${nextLocked.title} (${nextLocked.reqLabel || (nextLocked.reqHours + ' Jam')})</strong></span>
                             <span>${progressPct}% (${formatBadgeDurationLabel(listeningSeconds)} / ${nextLocked.reqLabel || (nextLocked.reqHours + ' Jam')})</span>
                         </div>
-                        <div class="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                        <div class="w-full h-2.5 rounded-full bg-white/10 overflow-hidden">
                             <div class="h-full bg-gradient-to-r from-sky-400 to-blue-500 transition-all duration-500" style="width: ${progressPct}%"></div>
                         </div>
                     </div>
                     ` : `
-                    <div class="text-[11px] text-amber-300 font-bold flex items-center gap-1">
-                        <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Selamat! Anda telah membuka SEMUA tingkat lencana durasi listening!
+                    <div class="text-xs text-amber-300 font-bold flex items-center gap-1.5 pt-1">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i> Selamat! Anda telah membuka SEMUA tingkat lencana durasi mendengarkan!
                     </div>
                     `}
                 </div>
 
-                <!-- Scrollable Badge List -->
-                <div class="flex-1 overflow-y-auto p-4 space-y-2.5 hide-scrollbar">
+                <!-- Badge List Container -->
+                <div class="p-4 sm:p-5 bg-[#13151f] border border-white/10 rounded-3xl shadow-xl space-y-3">
+                    <h3 class="text-xs font-extrabold text-white/70 uppercase tracking-wider flex items-center gap-1.5 mb-1">
+                        <i data-lucide="shield" class="w-3.5 h-3.5 text-sky-400"></i> Daftar Lencana Tersedia
+                    </h3>
                     ${badgeList.map(function(badge) {
                         var isSelected = (currentEquipped === badge.id);
                         return `
                         <div onclick="${badge.unlocked ? `Auth.equipRankBadge('${badge.id}', '${badge.title}', '${badge.icon}', '${badge.color}')` : ''}"
-                             class="p-3.5 rounded-2xl border transition-all flex items-center justify-between ${badge.unlocked ? 'cursor-pointer hover:border-sky-400/50 active:scale-[0.99]' : 'opacity-60 bg-white/[0.02] border-white/5 select-none'} ${isSelected ? 'bg-sky-500/15 border-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.2)]' : 'bg-[#181a24] border-white/10'}">
+                             class="p-4 rounded-2xl border transition-all flex items-center justify-between ${badge.unlocked ? 'cursor-pointer hover:border-sky-400/50 active:scale-[0.99]' : 'opacity-60 bg-white/[0.02] border-white/5 select-none'} ${isSelected ? 'bg-sky-500/15 border-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.2)]' : 'bg-[#181a24] border-white/10'}">
                             
-                            <div class="flex items-center gap-3 min-w-0 pr-2">
-                                <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg shrink-0 border" style="background: rgba(255,255,255,0.05); border-color: ${badge.color}; color: ${badge.color}">
+                            <div class="flex items-center gap-3.5 min-w-0 pr-2">
+                                <div class="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-xl shrink-0 border shadow-inner" style="background: rgba(255,255,255,0.05); border-color: ${badge.color}; color: ${badge.color}">
                                     ${badge.icon}
                                 </div>
                                 <div class="min-w-0">
@@ -2993,7 +3016,7 @@ var Auth = {
 
                             <div class="shrink-0">
                                 ${badge.unlocked ? `
-                                <button type="button" class="px-3 py-1.5 rounded-xl ${isSelected ? 'bg-sky-400 text-black' : 'bg-white/10 text-white hover:bg-sky-400 hover:text-black'} text-xs font-bold transition-all shadow-sm">
+                                <button type="button" class="px-3.5 py-1.5 rounded-xl ${isSelected ? 'bg-sky-400 text-black font-black' : 'bg-white/10 text-white hover:bg-sky-400 hover:text-black font-bold'} text-xs transition-all shadow-sm">
                                     ${isSelected ? 'Dipakai' : 'Gunakan'}
                                 </button>
                                 ` : `
