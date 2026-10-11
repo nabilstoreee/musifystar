@@ -1,0 +1,20 @@
+{
+  "name": "MusifyStar",
+  "private": true,
+  "version": "2.0.0",
+  "description": "MusifyStar Studio - Web Music Player",
+  "scripts": {
+    "lint": "node --check public/app.js",
+    "dev": "node server.js",
+    "build": "echo 'No build required'",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@distube/ytdl-core": "^4.16.12",
+    "axios": "^1.18.1",
+    "express": "^5.2.1",
+    "pg": "^8.23.0",
+    "play-dl": "^1.9.7",
+    "youtubei.js": "^18.1.0"
+  }
+}
