@@ -659,6 +659,10 @@ function renderProgress(){
     }
 
     checkAutoNextTransition();
+
+    if (typeof DynamicIsland !== 'undefined' && typeof DynamicIsland.updateState === 'function') {
+        DynamicIsland.updateState();
+    }
 }
 
 function checkAutoNextTransition() {
@@ -1034,6 +1038,7 @@ function UB(){
         if (typeof Library !== 'undefined' && typeof Library.renderActive === 'function') Library.renderActive();
         if (typeof OfflineView !== 'undefined' && typeof OfflineView.renderActive === 'function') OfflineView.renderActive();
         if (typeof App !== 'undefined' && typeof App.renderActive === 'function') App.renderActive();
+        if (typeof DynamicIsland !== 'undefined' && typeof DynamicIsland.updateState === 'function') DynamicIsland.updateState();
     } catch(e) {}
 }
 

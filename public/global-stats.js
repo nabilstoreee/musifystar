@@ -249,6 +249,9 @@
             `;
 
             document.body.appendChild(modal);
+            if (typeof DynamicIsland !== 'undefined' && typeof DynamicIsland.updateState === 'function') {
+                DynamicIsland.updateState();
+            }
             if (window.lucide && typeof window.lucide.createIcons === 'function') {
                 try { window.lucide.createIcons(); } catch(e){}
             }

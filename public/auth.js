@@ -1871,6 +1871,9 @@ var Auth = {
             </div>
         `;
         document.body.appendChild(modal);
+        if (typeof DynamicIsland !== 'undefined' && typeof DynamicIsland.updateState === 'function') {
+            DynamicIsland.updateState();
+        }
         if (window.lucide) lucide.createIcons();
 
         Auth.fetchAndRenderAvatarPicker();
@@ -2315,6 +2318,9 @@ var Auth = {
             </div>
         `;
         document.body.appendChild(modal);
+        if (typeof DynamicIsland !== 'undefined' && typeof DynamicIsland.updateState === 'function') {
+            DynamicIsland.updateState();
+        }
         Auth.renderBorderCardsList();
         if (window.lucide) lucide.createIcons();
     },

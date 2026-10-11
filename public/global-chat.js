@@ -178,6 +178,9 @@
 
             document.body.appendChild(modal);
             if (window.lucide) lucide.createIcons();
+            if (typeof DynamicIsland !== 'undefined' && typeof DynamicIsland.updateState === 'function') {
+                DynamicIsland.updateState();
+            }
 
             // Fetch initial messages immediately
             GlobalChat.fetchMessages(false);

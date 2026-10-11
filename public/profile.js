@@ -48,6 +48,9 @@ var Profile = {
     render() {
         var el = gid('view-dev');
         if (!el) return;
+        if (typeof DynamicIsland !== 'undefined' && typeof DynamicIsland.updateState === 'function') {
+            try { DynamicIsland.updateState(); } catch(e){}
+        }
         Profile.fetchAppVersion();
 
         var uAvatar = (window.Auth && Auth.currentUser && Auth.currentUser.avatar) ? Auth.currentUser.avatar : '/logo.png';
@@ -372,12 +375,11 @@ var Profile = {
         ];
 
         var benefits = (config && Array.isArray(config.benefits) && config.benefits.length > 0) ? config.benefits : [
-            { id: 'ben_borders', title: 'Akses Bebas Semua Border Profil', desc: 'Gunakan border Master, Legend, Immortal, & Platinum sesuka Anda.', icon: 'shield-check' },
-            { id: 'ben_avatars', title: 'Buka Semua Koleksi Avatar VIP', desc: 'Bebas pakai avatar eksklusif anime, cewek & cowok tanpa batas.', icon: 'sparkles' },
-            { id: 'ben_audio', title: 'Audio Musik Ultra HD & Bebas Iklan', desc: 'Kualitas suara jernih 320kbps tanpa jeda iklan streaming.', icon: 'headphones' },
-            { id: 'ben_crown', title: 'Lencana Mahkota VIP Emas Eksklusif', desc: 'Lencana kebanggaan di profil, komentar lagu, & obrolan komunitas.', icon: 'crown' },
-            { id: 'ben_download', title: 'Download Lagu & Dengarkan Offline', desc: 'Simpan lagu favorit langsung ke perangkat tanpa boros kuota.', icon: 'download' },
-            { id: 'ben_unlimited', title: 'Skip Lagu Sepuasnya & Fitur Tercepat', desc: 'Bebas loncat lagu tanpa batas & dapatkan update fitur musik terbaru duluan.', icon: 'zap' }
+            { id: 'ben_home_theme', number: 1, title: 'Bebas Semua Tema Home Screen', desc: 'Akses Playful, Neon, Spotify, Apple (Gratis hanya Classic)', icon: 'palette' },
+            { id: 'ben_navbar_theme', number: 2, title: 'Bebas Semua Tema Nav Bar', desc: 'Akses Liquid Glass, Spotify, Apple, Neon, New Classic (Gratis hanya Classic)', icon: 'layout' },
+            { id: 'ben_dynamic_island', number: 3, title: 'Dynamic Island Mini Player', desc: 'Island melayang interaktif di atas layar ala iOS', icon: 'music' },
+            { id: 'ben_chat', number: 4, title: 'IceBeats Chat & Kirim Lagu', desc: 'Ngobrol bersama teman dan bagikan musik favorit', icon: 'message-square' },
+            { id: 'ben_borders', number: 5, title: 'Semua Border Animasi Profil Master', desc: 'Royal Crown, Crimson Wings, Flame Ring & Golden Shield', icon: 'layers' }
         ];
 
         // Pilih paket awal (bulanan atau yang populer atau preselected)
@@ -489,11 +491,12 @@ var Profile = {
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    ${benefits.map(function(ben) {
+                    ${benefits.map(function(ben, idx) {
+                        var num = ben.number || (idx + 1);
                         return `
-                        <div class="flex items-start gap-3 p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
-                            <div class="w-7 h-7 rounded-lg bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-300 shrink-0 mt-0.5">
-                                <i data-lucide="${ben.icon || 'check-circle'}" class="w-4 h-4"></i>
+                        <div class="flex items-start gap-3 p-2.5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-amber-400/20 transition-all">
+                            <div class="w-7 h-7 rounded-lg bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-300 shrink-0 mt-0.5 font-black text-xs shadow-inner">
+                                ${num}
                             </div>
                             <div class="min-w-0">
                                 <h4 class="text-xs font-bold text-white leading-tight">${Profile.escapeHtml(ben.title)}</h4>
@@ -1171,6 +1174,9 @@ var Profile = {
         var defaults = {
             autoplay: true,
             backgroundPlay: true,
+            dynamicIsland: true,
+            homeTheme: 'classic',
+            navTheme: 'classic',
             keepScreenAwake: false,
             ecoMode: false,
             swipeGestures: true,
@@ -1239,20 +1245,100 @@ var Profile = {
             document.body.classList.remove('eco-mode');
         }
 
-        // 5. Gestur Usap Layar (Swipe Gestures) - Khusus VIP
-        window._musifySwipeGestures = isVip ? (settings.swipeGestures !== false) : false;
+        // 5. Gestur Usap Layar (Swipe Gestures)
+        window._musifySwipeGestures = (settings.swipeGestures !== false);
 
-        // 6. Kualitas Audio Streaming - Khusus VIP (Non-VIP default ke standard 128kbps)
-        window._musifyAudioQuality = isVip ? (settings.audioQuality || 'auto') : 'standard';
+        // 6. Kualitas Audio Streaming
+        window._musifyAudioQuality = settings.audioQuality || 'auto';
+
+        // 7. Dynamic Island Mini Player
+        window._musifyDynamicIsland = (settings.dynamicIsland !== false);
+        if (typeof DynamicIsland !== 'undefined' && typeof DynamicIsland.updateState === 'function') {
+            DynamicIsland.updateState();
+        }
+
+        // 8. Bebas Semua Tema Home Screen (Classic, Playful, Neon, Spotify, Apple) - Khusus VIP
+        var homeTheme = settings.homeTheme || 'classic';
+        if (!isVip && homeTheme !== 'classic') {
+            homeTheme = 'classic';
+        }
+        window._musifyHomeTheme = homeTheme;
+        ['classic', 'playful', 'neon', 'spotify', 'apple'].forEach(function(th) {
+            document.documentElement.classList.remove('theme-home-' + th);
+            document.body.classList.remove('theme-home-' + th);
+        });
+        document.documentElement.classList.add('theme-home-' + homeTheme);
+        document.body.classList.add('theme-home-' + homeTheme);
+
+        // 9. Bebas Semua Tema Nav Bar (Classic, Liquid Glass, Spotify, Apple, Cyber Neon, Modern Capsule) - Khusus VIP
+        var navTheme = settings.navTheme || 'classic';
+        if (!isVip && navTheme !== 'classic') {
+            navTheme = 'classic';
+        }
+        window._musifyNavTheme = navTheme;
+        ['classic', 'liquid', 'spotify', 'apple', 'neon', 'newclassic'].forEach(function(th) {
+            document.documentElement.classList.remove('theme-nav-' + th);
+            document.body.classList.remove('theme-nav-' + th);
+        });
+        document.documentElement.classList.add('theme-nav-' + navTheme);
+        document.body.classList.add('theme-nav-' + navTheme);
+    },
+
+    changeHomeTheme(themeName, selectEl) {
+        var isVip = Profile.isCurrentUserVip();
+        if (themeName !== 'classic' && !isVip) {
+            if (selectEl) selectEl.value = 'classic';
+            Profile.promptVipFeature('Bebas Semua Tema Home Screen (' + themeName.toUpperCase() + ')');
+            return;
+        }
+
+        var s = Profile.getSettings();
+        s.homeTheme = themeName;
+        Profile.saveSettings(s);
+        var themeTitles = {
+            classic: 'Classic Dark (Default)',
+            playful: 'Playful Vibe',
+            neon: 'Cyber Neon Glow',
+            spotify: 'Spotify Deep Emerald',
+            apple: 'Apple Music Glass'
+        };
+        if (typeof showToast === 'function') {
+            showToast('🎨 Tema Home Screen diubah ke ' + (themeTitles[themeName] || themeName) + '!');
+        }
+    },
+
+    changeNavTheme(themeName, selectEl) {
+        var isVip = Profile.isCurrentUserVip();
+        if (themeName !== 'classic' && !isVip) {
+            if (selectEl) selectEl.value = 'classic';
+            Profile.promptVipFeature('Bebas Semua Tema Nav Bar (' + themeName.toUpperCase() + ')');
+            return;
+        }
+
+        var s = Profile.getSettings();
+        s.navTheme = themeName;
+        Profile.saveSettings(s);
+        var themeTitles = {
+            classic: 'Classic Dock (Default)',
+            liquid: 'Liquid Glass (Glow Modern)',
+            spotify: 'Spotify Emerald',
+            apple: 'Apple Music Glass',
+            neon: 'Cyber Neon Glow',
+            newclassic: 'Modern Capsule'
+        };
+        if (typeof showToast === 'function') {
+            showToast('🎨 Tema Nav Bar diubah ke ' + (themeTitles[themeName] || themeName) + '!');
+        }
     },
 
     toggleSetting(key) {
-        var isVipRequired = (key === 'backgroundPlay' || key === 'keepScreenAwake' || key === 'swipeGestures');
+        var isVipRequired = (key === 'backgroundPlay' || key === 'keepScreenAwake' || key === 'swipeGestures' || key === 'dynamicIsland');
         if (isVipRequired && !Profile.isCurrentUserVip()) {
             var featureNames = {
                 backgroundPlay: 'Putar di Latar Belakang',
                 keepScreenAwake: 'Layar Tetap Menyala',
-                swipeGestures: 'Gestur Usap Layar'
+                swipeGestures: 'Gestur Usap Layar',
+                dynamicIsland: 'Dynamic Island Mini Player'
             };
             if (typeof showToast === 'function') {
                 showToast(`Fitur "${featureNames[key]}" terkunci! Khusus member VIP (1 Bulan, 2 Bulan, 5 Bulan, atau Permanen).`);
@@ -1288,6 +1374,7 @@ var Profile = {
             autoplay: 'Putar Otomatis',
             backgroundPlay: 'Putar di Latar Belakang',
             keepScreenAwake: 'Layar Tetap Menyala',
+            dynamicIsland: 'Dynamic Island Mini Player',
             ecoMode: 'Mode Hemat Baterai',
             swipeGestures: 'Gestur Usap Layar'
         };
@@ -1555,8 +1642,8 @@ var Profile = {
                         </div>
                         <div class="relative">
                             <select onchange="Profile.changeAudioQuality(this.value, this)" class="w-full py-2 px-3 pr-8 rounded-lg bg-black/40 border border-white/20 text-xs font-medium text-white appearance-none focus:outline-none focus:border-indigo-500 cursor-pointer transition-all">
-                                <option value="auto" ${s.audioQuality === 'auto' && isVip ? 'selected' : ''} class="bg-[#161922] text-white">Otomatis (Adaptif Jaringan) ${!isVip ? '🔒 (Khusus VIP)' : ''}</option>
-                                <option value="high" ${s.audioQuality === 'high' && isVip ? 'selected' : ''} class="bg-[#161922] text-white">Kualitas Tinggi (256 - 320 kbps) ${!isVip ? '🔒 (Khusus VIP)' : ''}</option>
+                                <option value="auto" ${s.audioQuality === 'auto' && isVip ? 'selected' : ''} class="bg-[#161922] text-white">Otomatis (Adaptif Jaringan) ${!isVip ? 'Khusus VIP' : ''}</option>
+                                <option value="high" ${s.audioQuality === 'high' && isVip ? 'selected' : ''} class="bg-[#161922] text-white">Kualitas Tinggi (256 - 320 kbps) ${!isVip ? 'Khusus VIP' : ''}</option>
                                 <option value="standard" ${(s.audioQuality === 'standard' || !isVip) ? 'selected' : ''} class="bg-[#161922] text-white">Standar (128 kbps)</option>
                                 <option value="saver" ${s.audioQuality === 'saver' ? 'selected' : ''} class="bg-[#161922] text-white">Hemat Kuota (64 kbps)</option>
                             </select>
@@ -1573,7 +1660,85 @@ var Profile = {
                         Layar & Performa
                     </div>
 
-                    <!-- 5. Layar Tetap Menyala (Keep Screen Awake - KHUSUS VIP) -->
+                    <!-- 1. Bebas Semua Tema Home Screen (KHUSUS VIP) -->
+                    <div class="p-3.5 rounded-xl ${isVip ? 'bg-white/[0.03]' : 'bg-amber-500/[0.03] border-amber-500/20'} border border-white/10 space-y-2">
+                        <div class="flex items-center gap-3 min-w-0 ${!isVip ? 'cursor-pointer' : ''}" ${!isVip ? 'onclick="Profile.promptVipFeature(\'Bebas Semua Tema Home Screen\')"' : ''}>
+                            <div class="w-8 h-8 rounded-lg ${isVip ? 'bg-white/5 border-white/10 text-white/70' : 'bg-amber-400/10 border-amber-400/20 text-amber-300'} border flex items-center justify-center shrink-0">
+                                <i data-lucide="palette" class="w-4 h-4 text-amber-400"></i>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <h4 class="text-xs font-semibold text-white">Bebas Semua Tema Home Screen</h4>
+                                    ${isVip ? '<span class="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-0.5"><i data-lucide="check" class="w-2.5 h-2.5"></i> VIP</span>' : '<span class="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center gap-0.5"><i data-lucide="lock" class="w-2.5 h-2.5"></i> VIP</span>'}
+                                </div>
+                                <p class="text-[11px] text-white/50 leading-snug mt-0.5">Akses Playful, Neon, Spotify, Apple (Gratis hanya Classic)</p>
+                            </div>
+                        </div>
+                        <div class="relative">
+                            <select onchange="Profile.changeHomeTheme(this.value, this)" class="w-full py-2 px-3 pr-8 rounded-lg bg-black/40 border border-white/20 text-xs font-medium text-white appearance-none focus:outline-none focus:border-indigo-500 cursor-pointer transition-all">
+                                <option value="classic" ${(s.homeTheme === 'classic' || !s.homeTheme) ? 'selected' : ''} class="bg-[#161922] text-white">Classic Dark (Gratis)</option>
+                                <option value="playful" ${s.homeTheme === 'playful' ? 'selected' : ''} class="bg-[#161922] text-white">Playful Vibe ${!isVip ? 'Khusus VIP' : 'VIP'}</option>
+                                <option value="neon" ${s.homeTheme === 'neon' ? 'selected' : ''} class="bg-[#161922] text-white">Cyber Neon Glow ${!isVip ? 'Khusus VIP' : 'VIP'}</option>
+                                <option value="spotify" ${s.homeTheme === 'spotify' ? 'selected' : ''} class="bg-[#161922] text-white">Spotify Emerald ${!isVip ? 'Khusus VIP' : 'VIP'}</option>
+                                <option value="apple" ${s.homeTheme === 'apple' ? 'selected' : ''} class="bg-[#161922] text-white">Apple Music Glass ${!isVip ? 'Khusus VIP' : 'VIP'}</option>
+                            </select>
+                            <div class="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-white/60">
+                                <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Bebas Semua Tema Nav Bar (KHUSUS VIP) -->
+                    <div class="p-3.5 rounded-xl ${isVip ? 'bg-white/[0.03]' : 'bg-amber-500/[0.03] border-amber-500/20'} border border-white/10 space-y-2">
+                        <div class="flex items-center gap-3 min-w-0 ${!isVip ? 'cursor-pointer' : ''}" ${!isVip ? 'onclick="Profile.promptVipFeature(\'Bebas Semua Tema Nav Bar\')"' : ''}>
+                            <div class="w-8 h-8 rounded-lg ${isVip ? 'bg-white/5 border-white/10 text-white/70' : 'bg-amber-400/10 border-amber-400/20 text-amber-300'} border flex items-center justify-center shrink-0">
+                                <i data-lucide="layout" class="w-4 h-4 text-amber-400"></i>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <h4 class="text-xs font-semibold text-white">Bebas Semua Tema Nav Bar</h4>
+                                    ${isVip ? '<span class="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-0.5"><i data-lucide="check" class="w-2.5 h-2.5"></i> VIP</span>' : '<span class="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center gap-0.5"><i data-lucide="lock" class="w-2.5 h-2.5"></i> VIP</span>'}
+                                </div>
+                                <p class="text-[11px] text-white/50 leading-snug mt-0.5">Akses Liquid Glass, Spotify Emerald, Apple Glass, Cyber Neon, Modern Capsule (Gratis hanya Classic)</p>
+                            </div>
+                        </div>
+                        <div class="relative">
+                            <select onchange="Profile.changeNavTheme(this.value, this)" class="w-full py-2 px-3 pr-8 rounded-lg bg-black/40 border border-white/20 text-xs font-medium text-white appearance-none focus:outline-none focus:border-indigo-500 cursor-pointer transition-all">
+                                <option value="classic" ${(s.navTheme === 'classic' || !s.navTheme) ? 'selected' : ''} class="bg-[#161922] text-white">Classic Dock (Gratis)</option>
+                                <option value="liquid" ${s.navTheme === 'liquid' ? 'selected' : ''} class="bg-[#161922] text-white">Liquid Glass Glow ${!isVip ? 'Khusus VIP' : 'VIP'}</option>
+                                <option value="spotify" ${s.navTheme === 'spotify' ? 'selected' : ''} class="bg-[#161922] text-white">Spotify Emerald ${!isVip ? 'Khusus VIP' : 'VIP'}</option>
+                                <option value="apple" ${s.navTheme === 'apple' ? 'selected' : ''} class="bg-[#161922] text-white">Apple Music Glass ${!isVip ? 'Khusus VIP' : 'VIP'}</option>
+                                <option value="neon" ${s.navTheme === 'neon' ? 'selected' : ''} class="bg-[#161922] text-white">Cyber Neon Glow ${!isVip ? 'Khusus VIP' : 'VIP'}</option>
+                                <option value="newclassic" ${s.navTheme === 'newclassic' ? 'selected' : ''} class="bg-[#161922] text-white">Modern Capsule ${!isVip ? 'Khusus VIP' : 'VIP'}</option>
+                            </select>
+                            <div class="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-white/60">
+                                <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 5. Dynamic Island Mini Player (KHUSUS VIP) -->
+                    <div onclick="Profile.toggleSetting('dynamicIsland')" class="p-3.5 rounded-xl ${isVip ? 'bg-white/[0.03] hover:bg-white/[0.06]' : 'bg-amber-500/[0.03] hover:bg-amber-500/[0.07] border-amber-500/20'} border border-white/10 flex items-center justify-between gap-3 cursor-pointer transition-all active:scale-[0.99]">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-8 h-8 rounded-lg ${isVip ? 'bg-white/5 border-white/10 text-white/70' : 'bg-amber-400/10 border-amber-400/20 text-amber-300'} border flex items-center justify-center shrink-0">
+                                <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <h4 class="text-xs font-semibold text-white">Dynamic Island Mini Player</h4>
+                                    ${isVip ? '<span class="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-0.5"><i data-lucide="check" class="w-2.5 h-2.5"></i> VIP</span>' : '<span class="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center gap-0.5"><i data-lucide="lock" class="w-2.5 h-2.5"></i> VIP</span>'}
+                                </div>
+                                <p class="text-[11px] text-white/50 leading-snug mt-0.5">Island melayang interaktif di atas layar ala iOS saat musik diputar</p>
+                            </div>
+                        </div>
+                        <div class="shrink-0 pl-1">
+                            <div id="setting-switch-track-dynamicIsland" class="w-11 h-6 rounded-full p-0.5 flex items-center ${(s.dynamicIsland && isVip) ? 'bg-indigo-600' : 'bg-white/10 border border-white/15'} cursor-pointer transition-colors duration-200">
+                                <div id="setting-switch-knob-dynamicIsland" class="w-5 h-5 rounded-full ${(s.dynamicIsland && isVip) ? 'bg-white' : 'bg-white/70'} shadow-md transition-transform duration-200" style="transform: translate3d(${(s.dynamicIsland && isVip) ? '20px' : '0px'}, 0, 0);"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 6. Layar Tetap Menyala (Keep Screen Awake - KHUSUS VIP) -->
                     <div onclick="Profile.toggleSetting('keepScreenAwake')" class="p-3.5 rounded-xl ${isVip ? 'bg-white/[0.03] hover:bg-white/[0.06]' : 'bg-amber-500/[0.03] hover:bg-amber-500/[0.07] border-amber-500/20'} border border-white/10 flex items-center justify-between gap-3 cursor-pointer transition-all active:scale-[0.99]">
                         <div class="flex items-center gap-3 min-w-0">
                             <div class="w-8 h-8 rounded-lg ${isVip ? 'bg-white/5 border-white/10 text-white/70' : 'bg-amber-400/10 border-amber-400/20 text-amber-300'} border flex items-center justify-center shrink-0">
@@ -1668,6 +1833,9 @@ var Profile = {
 
         document.body.appendChild(modal);
         if (typeof lucide !== 'undefined') lucide.createIcons();
+        if (typeof DynamicIsland !== 'undefined' && typeof DynamicIsland.updateState === 'function') {
+            DynamicIsland.updateState();
+        }
         Profile.calculateCacheSize();
     },
 
@@ -9234,7 +9402,7 @@ var Profile = {
                     <div>
                         <h5 class="text-xs font-bold text-white truncate">${Profile.escapeHtml(av.name)}</h5>
                         <p class="text-[10px] text-white/50 truncate font-mono mt-0.5">
-                            ${isFree ? '🟢 Gratis (Campur)' : (isCowo ? '⚡ VIP Cowok' : '🌸 VIP Cewek')}
+                            ${isFree ? 'Campur' : (isCowo ? 'VIP Cowok' : 'VIP Cewek')}
                         </p>
                     </div>
 
@@ -9243,9 +9411,9 @@ var Profile = {
                         <label class="block text-[9px] text-white/40 uppercase font-bold tracking-wider">Tab / Kategori:</label>
                         <select onchange="Profile.changeAvatarCategory('${av.id}', this.value)" 
                                 class="w-full text-[11px] font-semibold py-1.5 px-2 bg-black/70 border border-white/15 rounded-xl text-white focus:outline-none focus:border-[#ccff00] cursor-pointer">
-                            <option value="gratis" ${isFree ? 'selected' : ''}>🟢 Gratis (Campur)</option>
-                            <option value="cowo" ${isCowo ? 'selected' : ''}>⚡ VIP Cowok</option>
-                            <option value="cewe" ${isCewe ? 'selected' : ''}>🌸 VIP Cewek</option>
+                            <option value="gratis" ${isFree ? 'selected' : ''}>Campur</option>
+                            <option value="cowo" ${isCowo ? 'selected' : ''}>VIP Cowok</option>
+                            <option value="cewe" ${isCewe ? 'selected' : ''}>VIP Cewek</option>
                         </select>
                     </div>
 
@@ -10122,7 +10290,7 @@ var Profile = {
                                     <p id="admin-border-preview-name" class="text-xs font-black text-white truncate">Immortal</p>
                                     <div class="flex items-center justify-center gap-1.5 mt-1">
                                         <span id="admin-border-preview-badge" class="text-[9px] font-black px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 border border-pink-400/30 font-mono">
-                                            ⚡ Immortal (5 Bulan+)
+                                            Immortal (5 Bulan+)
                                         </span>
                                     </div>
                                     <span id="admin-border-preview-unlock-hint" class="text-[10px] text-white/50 block mt-1 truncate">
@@ -10140,11 +10308,11 @@ var Profile = {
                                         <!-- Tombol Cepat Kategori: Platinum, Master, Legend, Immortal, Permanen -->
                                         <div class="flex items-center gap-1.5 flex-wrap">
                                             <span class="text-[10px] text-amber-300 font-extrabold">Pilih Cepat Nama:</span>
-                                            <button type="button" onclick="Profile.selectAdminBorderCategory('platinum')" class="px-2 py-0.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-400/30 text-[10px] font-bold cursor-pointer transition-all active:scale-95" title="Pilih Platinum (1 Bulan+)">💎 Platinum</button>
-                                            <button type="button" onclick="Profile.selectAdminBorderCategory('master')" class="px-2 py-0.5 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 border border-orange-400/30 text-[10px] font-bold cursor-pointer transition-all active:scale-95" title="Pilih Master (1 Bulan+)">🔥 Master</button>
-                                            <button type="button" onclick="Profile.selectAdminBorderCategory('legend')" class="px-2 py-0.5 rounded-lg bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 border border-yellow-400/30 text-[10px] font-bold cursor-pointer transition-all active:scale-95" title="Pilih Legend (2 Bulan+)">👑 Legend</button>
-                                            <button type="button" onclick="Profile.selectAdminBorderCategory('immortal')" class="px-2 py-0.5 rounded-lg bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 border border-pink-400/30 text-[10px] font-extrabold cursor-pointer transition-all active:scale-95 shadow-sm shadow-pink-500/20" title="Pilih Immortal (5 Bulan+)">⚡ Immortal</button>
-                                            <button type="button" onclick="Profile.selectAdminBorderCategory('permanent')" class="px-2 py-0.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/30 text-[10px] font-bold cursor-pointer transition-all active:scale-95" title="Pilih Permanen (Lifetime)">🌟 Permanen</button>
+                                            <button type="button" onclick="Profile.selectAdminBorderCategory('platinum')" class="px-2 py-0.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-400/30 text-[10px] font-bold cursor-pointer transition-all active:scale-95" title="Pilih Platinum (1 Bulan+)">Platinum</button>
+                                            <button type="button" onclick="Profile.selectAdminBorderCategory('master')" class="px-2 py-0.5 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 border border-orange-400/30 text-[10px] font-bold cursor-pointer transition-all active:scale-95" title="Pilih Master (1 Bulan+)">Master</button>
+                                            <button type="button" onclick="Profile.selectAdminBorderCategory('legend')" class="px-2 py-0.5 rounded-lg bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 border border-yellow-400/30 text-[10px] font-bold cursor-pointer transition-all active:scale-95" title="Pilih Legend (2 Bulan+)">Legend</button>
+                                            <button type="button" onclick="Profile.selectAdminBorderCategory('immortal')" class="px-2 py-0.5 rounded-lg bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 border border-pink-400/30 text-[10px] font-extrabold cursor-pointer transition-all active:scale-95 shadow-sm shadow-pink-500/20" title="Pilih Immortal 5 Bulan">Immortal</button>
+                                            <button type="button" onclick="Profile.selectAdminBorderCategory('permanent')" class="px-2 py-0.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/30 text-[10px] font-bold cursor-pointer transition-all active:scale-95" title="Pilih Permanen (Lifetime)">Permanen</button>
                                         </div>
                                     </div>
                                     <input type="text" id="admin-border-name-input" placeholder="Contoh: Immortal, Legend, Master, Platinum" value="Immortal" class="w-full text-xs py-2.5 px-3.5 bg-black/70 border border-white/20 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-amber-400 transition-colors shadow-inner font-bold" oninput="Profile.updateBorderPreviewName(this.value)" required />
@@ -10218,7 +10386,7 @@ var Profile = {
                                     <input type="radio" name="admin_border_vip_tier" value="platinum" onchange="Profile.selectAdminBorderCategory('platinum')" class="w-4 h-4 accent-sky-400 cursor-pointer mt-0.5" />
                                     <div class="min-w-0">
                                         <div class="text-xs font-black text-sky-300 flex items-center gap-1">
-                                            <span>💎 Platinum</span>
+                                            <span>Platinum</span>
                                             <span class="text-[9px] font-mono px-1 py-0.2 bg-sky-400/20 rounded">1 Bln+</span>
                                         </div>
                                         <span class="text-[10px] text-white/60 block mt-0.5 leading-snug">
@@ -10232,7 +10400,7 @@ var Profile = {
                                     <input type="radio" name="admin_border_vip_tier" value="master" onchange="Profile.selectAdminBorderCategory('master')" class="w-4 h-4 accent-orange-400 cursor-pointer mt-0.5" />
                                     <div class="min-w-0">
                                         <div class="text-xs font-black text-orange-300 flex items-center gap-1">
-                                            <span>🔥 Master</span>
+                                            <span>Master</span>
                                             <span class="text-[9px] font-mono px-1 py-0.2 bg-orange-400/20 rounded">1 Bln+</span>
                                         </div>
                                         <span class="text-[10px] text-white/60 block mt-0.5 leading-snug">
@@ -10246,7 +10414,7 @@ var Profile = {
                                     <input type="radio" name="admin_border_vip_tier" value="legend" onchange="Profile.selectAdminBorderCategory('legend')" class="w-4 h-4 accent-yellow-400 cursor-pointer mt-0.5" />
                                     <div class="min-w-0">
                                         <div class="text-xs font-black text-yellow-300 flex items-center gap-1">
-                                            <span>👑 Legend</span>
+                                            <span>Legend</span>
                                             <span class="text-[9px] font-mono px-1 py-0.2 bg-yellow-400/20 rounded">2 Bln+</span>
                                         </div>
                                         <span class="text-[10px] text-white/60 block mt-0.5 leading-snug">
@@ -10260,7 +10428,7 @@ var Profile = {
                                     <input type="radio" name="admin_border_vip_tier" value="immortal" checked onchange="Profile.selectAdminBorderCategory('immortal')" class="w-4 h-4 accent-pink-400 cursor-pointer mt-0.5" />
                                     <div class="min-w-0">
                                         <div class="text-xs font-black text-pink-300 flex items-center gap-1">
-                                            <span>⚡ Immortal</span>
+                                            <span>Immortal</span>
                                             <span class="text-[9px] font-mono px-1 py-0.2 bg-pink-400/20 rounded">5 Bln+</span>
                                         </div>
                                         <span class="text-[10px] text-white/60 block mt-0.5 leading-snug">
@@ -10274,7 +10442,7 @@ var Profile = {
                                     <input type="radio" name="admin_border_vip_tier" value="permanent" onchange="Profile.selectAdminBorderCategory('permanent')" class="w-4 h-4 accent-amber-400 cursor-pointer mt-0.5" />
                                     <div class="min-w-0">
                                         <div class="text-xs font-black text-amber-300 flex items-center gap-1">
-                                            <span>🌟 Permanen</span>
+                                            <span>Permanen</span>
                                             <span class="text-[9px] font-mono px-1 py-0.2 bg-amber-400/30 rounded">Lifetime</span>
                                         </div>
                                         <span class="text-[10px] text-white/60 block mt-0.5 leading-snug">
@@ -11225,7 +11393,7 @@ var Profile = {
                                     </label>
                                 </div>
                                 <span class="vch-badge-status text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${isTrialMode ? 'bg-sky-400 text-black' : 'bg-white/10 text-white/50'}">
-                                    ${isTrialMode ? '✨ AKTIF DIPILIH' : 'Klik untuk Pilih'}
+                                    ${isTrialMode ? 'AKTIF DIPILIH' : 'Klik untuk Pilih'}
                                 </span>
                             </div>
 
@@ -11436,7 +11604,7 @@ var Profile = {
                 var badgeTrial = boxTrial.querySelector('.vch-badge-status');
                 if (badgeTrial) {
                     badgeTrial.className = 'vch-badge-status text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-sky-400 text-black';
-                    badgeTrial.innerText = '✨ AKTIF DIPILIH';
+                    badgeTrial.innerText = 'AKTIF DIPILIH';
                 }
             }
             if (boxVip) {
@@ -11732,7 +11900,7 @@ var Profile = {
 
             var tierBadge = '';
             if (v.isTrial || String(v.tier).toLowerCase() === 'trial') {
-                tierBadge = `<span class="text-[9.5px] px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 font-bold">✨ Trial (${v.durationDays || 7} Hari)</span>`;
+                tierBadge = `<span class="text-[9.5px] px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 font-bold">Trial (${v.durationDays || 7} Hari)</span>`;
             } else {
                 var t = String(v.tier || '1month').toLowerCase();
                 if (t === '1month' && (v.durationDays === 30 || !v.durationDays)) tierBadge = '<span class="text-[9.5px] px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 font-bold">VIP 1 Bulan (30 Hari)</span>';
