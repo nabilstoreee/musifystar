@@ -54,40 +54,39 @@ const DEFAULT_VIP_PACKAGES = [
 
 const DEFAULT_VIP_BENEFITS = [
     {
+        id: 'ben_home_theme',
+        number: 1,
+        title: 'Bebas Semua Tema Home Screen',
+        desc: 'Akses Playful, Neon, Spotify, Apple (Gratis hanya Classic)',
+        icon: 'palette'
+    },
+    {
+        id: 'ben_navbar_theme',
+        number: 2,
+        title: 'Bebas Semua Tema Nav Bar',
+        desc: 'Akses Liquid Glass, Spotify, Apple, Neon, New Classic (Gratis hanya Classic)',
+        icon: 'layout'
+    },
+    {
+        id: 'ben_dynamic_island',
+        number: 3,
+        title: 'Dynamic Island Mini Player',
+        desc: 'Island melayang interaktif di atas layar ala iOS saat musik diputar',
+        icon: 'music'
+    },
+    {
+        id: 'ben_chat',
+        number: 4,
+        title: 'IceBeats Chat & Kirim Lagu',
+        desc: 'Ngobrol bersama teman dan bagikan musik favorit',
+        icon: 'message-square'
+    },
+    {
         id: 'ben_borders',
-        title: 'Akses Bebas Semua Border Profil',
-        desc: 'Gunakan border Master, Legend, Immortal, & Platinum untuk tampil beda.',
-        icon: 'shield-check'
-    },
-    {
-        id: 'ben_avatars',
-        title: 'Buka Semua Koleksi Avatar VIP',
-        desc: 'Bebas pakai avatar eksklusif anime, cewek & cowok tanpa batas.',
-        icon: 'sparkles'
-    },
-    {
-        id: 'ben_audio',
-        title: 'Audio Musik Ultra HD & Bebas Iklan',
-        desc: 'Kualitas suara jernih 320kbps tanpa jeda iklan streaming.',
-        icon: 'headphones'
-    },
-    {
-        id: 'ben_crown',
-        title: 'Lencana Mahkota VIP Emas Eksklusif',
-        desc: 'Lencana kebanggaan di profil, komentar lagu, & obrolan komunitas.',
-        icon: 'crown'
-    },
-    {
-        id: 'ben_download',
-        title: 'Download Lagu & Dengarkan Offline',
-        desc: 'Simpan lagu favorit langsung ke perangkat tanpa boros kuota.',
-        icon: 'download'
-    },
-    {
-        id: 'ben_unlimited',
-        title: 'Skip Lagu Sepuasnya & Fitur Tercepat',
-        desc: 'Bebas loncat lagu tanpa batas & dapatkan update fitur musik terbaru duluan.',
-        icon: 'zap'
+        number: 5,
+        title: 'Semua Border Animasi Profil Master',
+        desc: 'Royal Crown, Crimson Wings, Flame Ring & Golden Shield',
+        icon: 'layers'
     }
 ];
 
