@@ -157,12 +157,18 @@ var Auth = {
                 // If modal was for IP ban, remove only if server confirms IP is not banned
                 if (modalCategory === 'ip' && data && !data.ipBanned && (!data.ban || !data.ban.isIpBanned)) {
                     existingModal.remove();
+                    try { localStorage.removeItem('musifystar_active_ban'); } catch(e) {}
                 }
                 // If modal was for Account ban, remove if server confirms account is not banned
                 else if (modalCategory === 'account' && data && !data.banned && (!data.ban || !data.ban.isBanned)) {
                     existingModal.remove();
                     try { localStorage.removeItem('musifystar_active_ban'); } catch(e) {}
                 }
+            }
+
+            // If server confirms safe, always clear active ban storage
+            if (data && !data.ipBanned && !data.banned && (!data.ban || (!data.ban.isBanned && !data.ban.isIpBanned))) {
+                try { localStorage.removeItem('musifystar_active_ban'); } catch(e) {}
             }
 
             if (data && data.authenticated && data.user) {
@@ -3006,28 +3012,38 @@ var Auth = {
                             ${publicIds.map(function(c) {
                                 var isP = c.isPermanent || c.duration === 'permanent' || c.duration === 'permanen' || !c.durationMs;
                                 var isEquippedThis = currentCustomId && String(currentCustomId) === String(c.customId);
+                                var inUseByOther = Boolean(c.inUseByAnotherUser && !isEquippedThis);
                                 var durBadge = isP ? 'PERMANEN' : (c.duration ? `TRIAL ${c.duration.toUpperCase()}` : 'TRIAL');
 
                                 return `
-                                <div class="p-4 rounded-2xl ${isEquippedThis ? 'bg-amber-500/15 border-amber-400 shadow-lg shadow-amber-500/20' : 'bg-[#13151f] hover:bg-[#181b28] border-white/10 hover:border-amber-400/50'} border transition-all space-y-3 relative group">
+                                <div class="p-4 rounded-2xl ${isEquippedThis ? 'bg-amber-500/15 border-amber-400 shadow-lg shadow-amber-500/20' : (inUseByOther ? 'bg-rose-950/20 border-rose-500/30 opacity-80' : 'bg-[#13151f] hover:bg-[#181b28] border-white/10 hover:border-amber-400/50')} border transition-all space-y-3 relative group">
                                     <div class="flex items-center justify-between">
                                         <div class="flex items-center gap-1.5">
-                                            <div class="w-7 h-7 rounded-lg bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-300">
-                                                <i data-lucide="hash" class="w-3.5 h-3.5"></i>
+                                            <div class="w-7 h-7 rounded-lg ${inUseByOther ? 'bg-rose-500/20 border border-rose-500/30 text-rose-300' : 'bg-amber-400/20 border border-amber-400/30 text-amber-300'} flex items-center justify-center">
+                                                <i data-lucide="${inUseByOther ? 'user-x' : 'hash'}" class="w-3.5 h-3.5"></i>
                                             </div>
-                                            <span class="text-[10px] font-black uppercase tracking-wider ${isP ? 'text-amber-400' : 'text-emerald-400'}">
+                                            <span class="text-[10px] font-black uppercase tracking-wider ${inUseByOther ? 'text-rose-400' : (isP ? 'text-amber-400' : 'text-emerald-400')}">
                                                 ${durBadge}
                                             </span>
                                         </div>
                                         ${isEquippedThis ? `
                                             <span class="text-[9px] font-black px-2 py-0.5 rounded-md bg-amber-400 text-black">AKTIF</span>
-                                        ` : ''}
+                                        ` : (inUseByOther ? `
+                                            <span class="text-[9px] font-black px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1">
+                                                <i data-lucide="lock" class="w-2.5 h-2.5"></i> DIPAKAI ${c.activeUserMasked ? Profile.escapeHtml(c.activeUserMasked) : 'PENGGUNA LAIN'}
+                                            </span>
+                                        ` : '')}
                                     </div>
 
                                     <div class="py-1">
-                                        <span class="text-lg sm:text-xl font-mono font-black text-white tracking-widest block drop-shadow-sm group-hover:text-amber-300 transition-colors">
+                                        <span class="text-lg sm:text-xl font-mono font-black ${inUseByOther ? 'text-white/60' : 'text-white group-hover:text-amber-300'} tracking-widest block drop-shadow-sm transition-colors">
                                             ${Profile.escapeHtml(c.customId)}
                                         </span>
+                                        ${inUseByOther ? `
+                                            <span class="text-[10px] text-rose-400/90 font-medium block mt-0.5">
+                                                Sedang digunakan oleh ${Profile.escapeHtml(c.activeUserMasked || 'pengguna lain')}
+                                            </span>
+                                        ` : ''}
                                     </div>
 
                                     <div class="pt-1">
@@ -3036,19 +3052,22 @@ var Auth = {
                                                 <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
                                                 <span>Lepas ID</span>
                                             </button>
+                                        ` : (inUseByOther ? `
+                                            <button type="button" disabled title="ID ini sedang digunakan oleh pengguna lain dan tidak dapat dipakai sampai dilepas" class="w-full py-2 px-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300/70 text-xs font-bold flex items-center justify-center gap-1.5 cursor-not-allowed">
+                                                <i data-lucide="lock" class="w-3.5 h-3.5 text-rose-400"></i>
+                                                <span>Sedang Dipakai Pengguna Lain</span>
+                                            </button>
+                                        ` : (isTrialActive ? `
+                                            <button type="button" disabled title="Tunggu masa trial ID yang sedang aktif habis" class="w-full py-2 px-3 rounded-xl bg-white/5 border border-white/10 text-white/40 text-xs font-bold flex items-center justify-center gap-1.5 cursor-not-allowed">
+                                                <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+                                                <span>Terkunci (Trial Aktif)</span>
+                                            </button>
                                         ` : `
-                                            ${isTrialActive ? `
-                                                <button type="button" disabled title="Tunggu masa trial ID yang sedang aktif habis" class="w-full py-2 px-3 rounded-xl bg-white/5 border border-white/10 text-white/40 text-xs font-bold flex items-center justify-center gap-1.5 cursor-not-allowed">
-                                                    <i data-lucide="lock" class="w-3.5 h-3.5"></i>
-                                                    <span>Terkunci (Trial Aktif)</span>
-                                                </button>
-                                            ` : `
-                                                <button type="button" onclick="Profile.userEquipDirectCustomId('${Profile.escapeHtml(c.customId)}')" class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 active:scale-95 text-black font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 transition-all cursor-pointer">
-                                                    <i data-lucide="check" class="w-3.5 h-3.5"></i>
-                                                    <span>Pasang Custom ID</span>
-                                                </button>
-                                            `}
-                                        `}
+                                            <button type="button" onclick="Profile.userEquipDirectCustomId('${Profile.escapeHtml(c.customId)}')" class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 active:scale-95 text-black font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 transition-all cursor-pointer">
+                                                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                                                <span>Pasang Custom ID</span>
+                                            </button>
+                                        `))}
                                     </div>
                                 </div>
                                 `;

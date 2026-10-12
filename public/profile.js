@@ -12771,17 +12771,27 @@ var Profile = {
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 ${publicIds.map(function(c) {
                                     var isP = c.isPermanent || c.duration === 'permanent' || c.duration === 'permanen' || !c.durationMs;
+                                    var isEquippedThis = Boolean(u && u.customId && String(u.customId) === String(c.customId));
+                                    var inUseByOther = Boolean(c.inUseByAnotherUser && !isEquippedThis);
                                     var durBadge = isP ? 'PERMANEN' : (c.duration ? `TRIAL ${c.duration.toUpperCase()}` : 'TRIAL');
 
                                     return `
-                                    <div class="p-3 rounded-xl bg-black/50 hover:bg-black/70 border border-white/10 hover:border-amber-400/50 flex items-center justify-between gap-2 transition-all">
+                                    <div class="p-3 rounded-xl ${inUseByOther ? 'bg-rose-950/20 border-rose-500/25 opacity-75' : 'bg-black/50 hover:bg-black/70 border-white/10 hover:border-amber-400/50'} border flex items-center justify-between gap-2 transition-all">
                                         <div class="min-w-0">
-                                            <span class="text-xs font-black font-mono text-white tracking-wider block truncate">${Profile.escapeHtml(c.customId)}</span>
-                                            <span class="text-[9px] font-bold ${isP ? 'text-amber-400' : 'text-emerald-400'}">${durBadge}</span>
+                                            <span class="text-xs font-black font-mono ${inUseByOther ? 'text-white/60' : 'text-white'} tracking-wider block truncate">${Profile.escapeHtml(c.customId)}</span>
+                                            <span class="text-[9px] font-bold ${inUseByOther ? 'text-rose-400' : (isP ? 'text-amber-400' : 'text-emerald-400')}">
+                                                ${inUseByOther ? 'SEDANG DIPAKAI' : durBadge}
+                                            </span>
                                         </div>
-                                        <button type="button" onclick="Profile.userEquipDirectCustomId('${Profile.escapeHtml(c.customId)}')" class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-black font-black text-[11px] shadow-sm active:scale-95 transition-all cursor-pointer shrink-0">
-                                            Pasang
-                                        </button>
+                                        ${inUseByOther ? `
+                                            <span class="text-[10px] text-rose-400 font-bold flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/15 border border-rose-500/25 shrink-0 select-none">
+                                                <i data-lucide="lock" class="w-3 h-3 text-rose-400"></i> Dipakai
+                                            </span>
+                                        ` : `
+                                            <button type="button" onclick="Profile.userEquipDirectCustomId('${Profile.escapeHtml(c.customId)}')" class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-black font-black text-[11px] shadow-sm active:scale-95 transition-all cursor-pointer shrink-0">
+                                                Pasang
+                                            </button>
+                                        `}
                                     </div>
                                     `;
                                 }).join('')}
@@ -12825,9 +12835,13 @@ var Profile = {
                     Auth.currentUser.isCustomIdTrial = data.user.isCustomIdTrial;
                     try { localStorage.setItem('musifystar_auth_user', JSON.stringify(Auth.currentUser)); } catch(e){}
                 }
+                var wasPickerOpen = Boolean(gid('customid-picker-modal'));
                 gid('customid-picker-modal')?.remove();
                 if (gid('user-profile-modal')) {
                     Auth.openUserProfileModal();
+                }
+                if (wasPickerOpen && typeof Auth.openCustomIdPickerModal === 'function') {
+                    Auth.openCustomIdPickerModal();
                 }
             } else {
                 if (typeof showToast === 'function') showToast(data?.message || 'Gagal memasang Custom ID');
@@ -12866,9 +12880,13 @@ var Profile = {
                     Auth.currentUser.isCustomIdTrial = false;
                     try { localStorage.setItem('musifystar_auth_user', JSON.stringify(Auth.currentUser)); } catch(e){}
                 }
+                var wasPickerOpen = Boolean(gid('customid-picker-modal'));
                 gid('customid-picker-modal')?.remove();
                 if (gid('user-profile-modal')) {
                     Auth.openUserProfileModal();
+                }
+                if (wasPickerOpen && typeof Auth.openCustomIdPickerModal === 'function') {
+                    Auth.openCustomIdPickerModal();
                 }
             } else {
                 if (typeof showToast === 'function') showToast(data?.message || 'Gagal kembali ke ID semula');

@@ -1,7 +1,7 @@
 /**
  * MusifyStar Client-Side Anti-Tamper & Security Watchdog
- * Melindungi status VIP dari manipulasi DevTools / Console / Storage pada PC & Browser
- * Jika terdeteksi otak-atik, laporkan ke server & blokir IP secara permanen.
+ * Melindungi integritas akun dari manipulasi DevTools / Console / Storage pada PC & Browser.
+ * Integritas VIP sepenuhnya divalidasi oleh otoritas server dan tanda tangan kriptografis.
  */
 (function() {
     'use strict';
@@ -10,16 +10,28 @@
         _isTriggered: false,
         _lastKnownGoodVip: null,
         _lastKnownSignature: null,
+        _isSyncing: false,
 
-        // Laporkan tindakan tampering ke server & kunci layar
+        // Laporkan tindakan tampering ke server & kunci layar hanya jika terverifikasi oleh server
         reportTamper: function(reason, detail) {
             if (Security._isTriggered) return;
-            Security._isTriggered = true;
 
             var targetUser = null;
             try {
                 targetUser = JSON.parse(localStorage.getItem('musifystar_auth_user') || 'null');
             } catch(e) {}
+
+            // Admin dan akun pemilik kebal terhadap report tamper
+            if (targetUser) {
+                var uname = (targetUser.username || '').toLowerCase();
+                var uemail = (targetUser.rawEmail || targetUser.email || '').toLowerCase();
+                if (uname === 'abil' || uname === 'nabil' || uemail === 'jrnabil570@gmail.com' || targetUser.role === 'admin') {
+                    console.log('[Security] Admin immunity active, ignoring tamper report.');
+                    return;
+                }
+            }
+
+            Security._isTriggered = true;
 
             var payload = {
                 action: 'report_tamper',
@@ -29,7 +41,7 @@
                 username: targetUser ? targetUser.username : ''
             };
 
-            // Kirim laporan pelanggaran ke server untuk memblokir IP secara permanen
+            // Kirim laporan pelanggaran ke server
             try {
                 if (navigator.sendBeacon) {
                     var blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
@@ -44,14 +56,13 @@
                 }
             } catch(e) {}
 
-            // Hapus semua token & data lokal agar tidak bisa digunakan
+            // Hapus session palsu
             try {
                 localStorage.removeItem('musifystar_auth_user');
-                localStorage.removeItem('musifystar_auth_token');
-                sessionStorage.clear();
+                sessionStorage.removeItem('musifystar_auth_user');
             } catch(e) {}
 
-            // Hentikan pemutaran musik seketika
+            // Hentikan pemutaran musik
             if (window.MusicPlayer) {
                 try {
                     if (typeof MusicPlayer.pause === 'function') MusicPlayer.pause();
@@ -91,7 +102,7 @@
                 <div class="card">
                     <div class="icon">🚫</div>
                     <h1>AKSES DITOLAK: IP DIBLOKIR</h1>
-                    <p class="desc">Sistem mendeteksi percobaan pengubahan / manipulasi status akun VIP secara ilegal melalui DevTools / Console / Storage. Alamat IP dan perangkat Anda telah diblokir secara permanen dari server MusifyStar.</p>
+                    <p class="desc">Sistem mendeteksi percobaan pengubahan status akun VIP secara ilegal melalui DevTools / Console / Storage. Alamat IP dan perangkat Anda telah diblokir secara permanen dari server MusifyStar.</p>
                     <div class="info-box">
                         <div class="info-row">
                             <span class="info-label">Status Akses:</span>
@@ -107,7 +118,6 @@
             </body>
             </html>
             `;
-            // Block any further script execution
             throw new Error('Security Lockdown Activated');
         },
 
@@ -133,21 +143,28 @@
                 var user = JSON.parse(raw);
                 if (!user) return;
 
+                // Admin / master skip check
+                var uname = (user.username || '').toLowerCase();
+                var uemail = (user.rawEmail || user.email || '').toLowerCase();
+                if (uname === 'abil' || uname === 'nabil' || uemail === 'jrnabil570@gmail.com' || user.role === 'admin') {
+                    return;
+                }
+
                 var claimedVip = Boolean((user.isPremium || user.isVip || (user.vipTier && user.vipTier !== 'none')));
                 
-                // Jika user mengklaim VIP, harus memiliki vipSignature sah dari server
-                if (claimedVip) {
-                    if (!user.vipSignature) {
-                        Security.reportTamper('Manipulasi VIP terdeteksi: vipSignature server tidak ada pada akun VIP lokal.');
-                        return;
-                    }
-                    if (Security._lastKnownSignature && user.vipSignature !== Security._lastKnownSignature) {
-                        Security.reportTamper('Manipulasi VIP terdeteksi: Signature VIP lokal tidak cocok dengan server.');
-                        return;
-                    }
-                    if (Security._lastKnownGoodVip === false) {
-                        Security.reportTamper('Manipulasi VIP terdeteksi: Akun non-VIP diubah menjadi VIP di local storage.');
-                        return;
+                // Jika user sebelumnya diverifikasi sebagai non-VIP oleh server, tapi lokal diubah paksa jadi VIP
+                if (claimedVip && Security._lastKnownGoodVip === false) {
+                    Security.reportTamper('Manipulasi VIP terdeteksi: Akun non-VIP diubah paksa menjadi VIP di local storage.');
+                    return;
+                }
+
+                // Jika user mengklaim VIP tapi belum ada signature, minta sinkronisasi server resmi
+                if (claimedVip && !user.vipSignature && window.Auth && typeof window.Auth.checkSession === 'function') {
+                    if (!Security._isSyncing) {
+                        Security._isSyncing = true;
+                        window.Auth.checkSession().finally(function() {
+                            setTimeout(function() { Security._isSyncing = false; }, 3000);
+                        });
                     }
                 }
             } catch(e) {}
@@ -158,7 +175,7 @@
             // Jalankan pemeriksaan integritas secara reguler
             setInterval(function() {
                 Security.verifyIntegrity();
-            }, 1500);
+            }, 3000);
 
             // Pantau event storage untuk mendeteksi perubahan dari DevTools Application tab
             window.addEventListener('storage', function(e) {
@@ -166,18 +183,6 @@
                     Security.verifyIntegrity();
                 }
             });
-
-            // Pantau objek Auth jika tersedia
-            var checkAuthUser = function() {
-                if (window.Auth && window.Auth.currentUser) {
-                    var u = window.Auth.currentUser;
-                    var claimedVip = Boolean(u.isPremium || u.isVip || (u.vipTier && u.vipTier !== 'none'));
-                    if (claimedVip && !u.vipSignature) {
-                        Security.reportTamper('Manipulasi objek memori Auth.currentUser.vipTier via Console terdeteksi.');
-                    }
-                }
-            };
-            setInterval(checkAuthUser, 2000);
         }
     };
 
