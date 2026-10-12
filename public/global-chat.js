@@ -57,7 +57,7 @@
             if (u) {
                 var email = (u.email || u.rawEmail || '').toLowerCase().trim();
                 var uid = String(u.id || u.userId || '');
-                if (email === 'jrnabil570@gmail.com' || uid === 'u_1790196636099_622dc736') {
+                if (email === 'jrnabil570@gmail.com' || uid === '8589478687' || uid === 'u_1790196636099_622dc736') {
                     u.isAdmin = true;
                     u.isVerifiedAdmin = true;
                     u.badge = 'Admin';
@@ -438,7 +438,7 @@
                 var isMe = false;
                 if (myId && msgUserId && msgUserId === myId) {
                     isMe = true;
-                } else if (isMasterAdmin && (msgUserId === 'u_1790196636099_622dc736' || msgUserId === 'admin_1' || msgEmail === 'jrnabil570@gmail.com')) {
+                } else if (isMasterAdmin && (msgUserId === '8589478687' || msgUserId === 'u_1790196636099_622dc736' || msgUserId === 'admin_1' || msgEmail === 'jrnabil570@gmail.com')) {
                     isMe = true;
                 } else if (myEmail && msgEmail && msgEmail === myEmail) {
                     isMe = true;
@@ -449,8 +449,8 @@
                 }
 
                 // Admin Centang Biru Detection:
-                // Strictly true if email is jrnabil570@gmail.com, or user_id is u_1790196636099_622dc736, or flagged as verified admin
-                var isMsgAdmin = !!m.isVerifiedAdmin || !!m.isAdmin || (msgEmail === 'jrnabil570@gmail.com') || (msgUserId === 'u_1790196636099_622dc736') || (msgUserId === 'admin_1') || (m.badge === 'Admin' && (m.username === 'nabil' || m.username === 'MusifyStar Official' || msgUserId === 'u_1790196636099_622dc736'));
+                // Strictly true if email is jrnabil570@gmail.com, or user_id is 8589478687 / u_1790196636099_622dc736, or flagged as verified admin
+                var isMsgAdmin = !!m.isVerifiedAdmin || !!m.isAdmin || (msgEmail === 'jrnabil570@gmail.com') || (msgUserId === '8589478687') || (msgUserId === 'u_1790196636099_622dc736') || (msgUserId === 'admin_1') || (m.badge === 'Admin' && (m.username === 'nabil' || m.username === 'MusifyStar Official' || msgUserId === '8589478687' || msgUserId === 'u_1790196636099_622dc736'));
                 var displayUsername = (isMe && u && u.username) ? u.username : (m.username || (isMsgAdmin ? 'MusifyStar Official' : 'Musisi'));
                 var avatarColor = isMsgAdmin ? 'from-slate-700 to-slate-900 border border-slate-600/60' : (m.avatarColor || 'from-slate-700 to-slate-800');
                 var initial = isMsgAdmin ? 'M' : (displayUsername.charAt(0).toUpperCase());
@@ -630,7 +630,7 @@
 
             var myId = String(u.id || u.userId || '');
             var myEmail = (u.email || u.rawEmail || '').toLowerCase().trim();
-            var isMasterAdmin = (myEmail === 'jrnabil570@gmail.com' || myId === 'u_1790196636099_622dc736');
+            var isMasterAdmin = (myEmail === 'jrnabil570@gmail.com' || myId === '8589478687' || myId === 'u_1790196636099_622dc736');
             var myUsername = u.username || (isMasterAdmin ? 'MusifyStar Official' : 'Musisi');
 
             // Only pass admin token if user is actually Master Admin
@@ -755,7 +755,7 @@
             var myEmail = u ? (u.email || u.rawEmail || '').toLowerCase().trim() : '';
             var myId = u ? String(u.id || u.userId || '') : '';
             var myUsername = u ? (u.username || '') : '';
-            var isMasterAdmin = (myEmail === 'jrnabil570@gmail.com' || myId === 'u_1790196636099_622dc736');
+            var isMasterAdmin = (myEmail === 'jrnabil570@gmail.com' || myId === '8589478687' || myId === 'u_1790196636099_622dc736');
 
             var adminToken = '';
             if (isMasterAdmin) {
@@ -1066,7 +1066,7 @@
             if (bottomBar && u) {
                 var myId = String(u.id || u.userId || '');
                 var myEmail = (u.email || u.rawEmail || '').toLowerCase().trim();
-                var isMasterAdmin = (myEmail === 'jrnabil570@gmail.com' || myId === 'u_1790196636099_622dc736');
+                var isMasterAdmin = (myEmail === 'jrnabil570@gmail.com' || myId === '8589478687' || myId === 'u_1790196636099_622dc736');
                 bottomBar.innerHTML = GlobalChat.renderBottomBar(u, isMasterAdmin);
             }
             // Re-render messages to reflect profile/badge change on own messages

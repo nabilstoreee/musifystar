@@ -483,6 +483,9 @@ var Profile = {
                 </button>
             </div>
 
+            <!-- BAGIAN CUSTOM ID VIP & TRIAL INFORMASI -->
+            <div id="vip-custom-id-section-container"></div>
+
             <!-- BAGIAN 2: KEUNTUNGAN MEMBER VIP -->
             <div class="p-4 rounded-2xl bg-[#11131a] border border-white/10 space-y-3">
                 <div class="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
@@ -537,6 +540,11 @@ var Profile = {
 
         document.body.appendChild(modal);
         if (window.lucide) lucide.createIcons();
+        setTimeout(function() {
+            if (typeof Profile.loadUserCustomIdSection === 'function') {
+                Profile.loadUserCustomIdSection('vip-custom-id-section-container');
+            }
+        }, 10);
     },
 
     selectVipPackageItem(pkgId) {
@@ -716,7 +724,7 @@ var Profile = {
     openPaymentConfirmDialog(packageId, packageName, amount, duration) {
         var u = (typeof Auth !== 'undefined' && Auth.currentUser) ? Auth.currentUser : {};
         var username = u.username || 'Pengguna MusifyStar';
-        var userId = u.id || u.userId || 'usr_' + Date.now();
+        var userId = u.id || u.userId || Math.floor(1000000000 + Math.random() * 9000000000).toString();
 
         var existing = gid('musifystar-confirm-dialog');
         if (existing) existing.remove();
@@ -1428,25 +1436,41 @@ var Profile = {
 
     async calculateCacheSize() {
         var sizeTextEl = gid('setting-cache-size-text');
+        var clearedAt = localStorage.getItem('musifystar_cache_cleared_at');
         var bytes = 0;
-        try {
-            if (navigator.storage && navigator.storage.estimate) {
-                var estimate = await navigator.storage.estimate();
-                bytes = estimate.usage || 0;
-            }
-        } catch(e) {}
 
         try {
             var localAudio = localStorage.getItem('pwa_audio_cache') || '';
             var localLyrics = localStorage.getItem('pwa_lyrics_cache') || '';
-            bytes = Math.max(bytes, (localAudio.length + localLyrics.length) * 2);
+            var streamCache = localStorage.getItem('musify_stream_cache') || '';
+            var homeCache = localStorage.getItem('musifystar_home_sections_cache_v4') || '';
+            var searchCache = localStorage.getItem('musifystar_search_history') || '';
+            var totalLocal = localAudio.length + localLyrics.length + streamCache.length + homeCache.length + searchCache.length;
+            bytes += totalLocal * 2;
         } catch(e) {}
 
-        var mb = (bytes / (1024 * 1024)).toFixed(1);
-        if (sizeTextEl) {
-            sizeTextEl.innerText = (parseFloat(mb) > 0 ? mb + ' MB' : '< 1 MB');
+        try {
+            if (window.caches && !clearedAt) {
+                var keys = await window.caches.keys();
+                if (keys && keys.length > 0) {
+                    bytes += keys.length * 10240;
+                }
+            }
+        } catch(e) {}
+
+        if (clearedAt && (Date.now() - parseInt(clearedAt)) < 3600000 && bytes < 10000) {
+            bytes = 0;
         }
-        return mb;
+
+        var text = '0 KB (Bersih)';
+        if (bytes > 1024 * 1024) {
+            text = (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        } else if (bytes > 0) {
+            text = Math.ceil(bytes / 1024) + ' KB';
+        }
+
+        if (sizeTextEl) sizeTextEl.innerText = text;
+        return text;
     },
 
     async clearAppCache() {
@@ -1467,12 +1491,28 @@ var Profile = {
                 'pwa_lyrics_cache',
                 'musifystar_home_sections_cache_v4',
                 'musifystar_search_history',
-                'musify_stream_cache'
+                'musify_stream_cache',
+                'musifystar_audio_urls',
+                'musifystar_lyrics_data'
             ];
             cacheKeysToRemove.forEach(function(k) {
                 try { localStorage.removeItem(k); } catch(e) {}
             });
             try { sessionStorage.clear(); } catch(e) {}
+            if (typeof lyricsCache !== 'undefined') lyricsCache = {};
+            if (typeof audioUrlCache !== 'undefined') audioUrlCache = {};
+            if (typeof GlobalStats !== 'undefined') GlobalStats.cachedData = {};
+            if (typeof Auth !== 'undefined') Auth.cachedAvatarsList = null;
+
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    for (var registration of registrations) {
+                        try { registration.unregister(); } catch(e){}
+                    }
+                });
+            }
+
+            localStorage.setItem('musifystar_cache_cleared_at', Date.now().toString());
         } catch(e) {
             console.error('Clear cache error:', e);
         }
@@ -1487,11 +1527,12 @@ var Profile = {
                 }, 2000);
             }
             var sizeTextEl = gid('setting-cache-size-text');
-            if (sizeTextEl) sizeTextEl.innerText = '< 1 MB';
+            if (sizeTextEl) sizeTextEl.innerText = '0 KB (Bersih)';
             if (typeof showToast === 'function') {
                 showToast('Cache memori berhasil dibersihkan! 🧹');
             }
-        }, 500);
+            Profile.calculateCacheSize();
+        }, 400);
     },
 
     // MODAL PENGATURAN (SETTINGS) - Tampilan Bersih & Minimalis
@@ -2384,6 +2425,11 @@ var Profile = {
                         <span>Tambah Border Profile</span>
                         <span class="text-[9px] bg-amber-400 text-black px-1.5 py-0.2 rounded-full font-black uppercase tracking-wider">VIP</span>
                     </button>
+                    <button id="admin-tab-btn-customids" onclick="Profile.setAdminTab('customids')" class="px-3.5 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-400/40 hover:text-white whitespace-nowrap shadow-sm shadow-amber-500/20">
+                        <i data-lucide="fingerprint" class="w-4 h-4 text-amber-400"></i>
+                        <span>Kelola Custom ID VIP</span>
+                        <span id="admin-customids-count-badge" class="hidden text-[10px] bg-amber-400 text-black px-1.5 py-0.2 rounded-full font-black">0</span>
+                    </button>
                     <button id="admin-tab-btn-siteupdate" onclick="Profile.setAdminTab('siteupdate')" class="px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer bg-white/5 hover:bg-white/10 text-white/70 hover:text-white whitespace-nowrap">
                         <i data-lucide="external-link" class="w-4 h-4 text-cyan-400"></i>
                         <span>Banner Update Link (Tengah Layar)</span>
@@ -2526,6 +2572,16 @@ var Profile = {
                         </div>
                     </div>
                 </div>
+
+                <!-- TAB 16: CUSTOM ID VIP & TRIAL MANAGEMENT -->
+                <div id="admin-view-customids" class="hidden space-y-4">
+                    <div id="admin-customids-container" class="space-y-4">
+                        <div class="text-center py-12 text-white/50 space-y-2">
+                            <i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto text-amber-400"></i>
+                            <p class="text-xs">Memuat data Custom ID VIP & Trial...</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Footer with Logout -->
@@ -2576,6 +2632,7 @@ var Profile = {
         var btnMessages = gid('admin-tab-btn-messages');
         var btnAvatars = gid('admin-tab-btn-avatars');
         var btnBorders = gid('admin-tab-btn-borders');
+        var btnCustomIds = gid('admin-tab-btn-customids');
         var btnSiteUpdate = gid('admin-tab-btn-siteupdate');
         var viewAnalytics = gid('admin-view-analytics');
         var viewGlobalStats = gid('admin-view-globalstats');
@@ -2592,6 +2649,7 @@ var Profile = {
         var viewMessages = gid('admin-view-messages');
         var viewAvatars = gid('admin-view-avatars');
         var viewBorders = gid('admin-view-borders');
+        var viewCustomIds = gid('admin-view-customids');
         var viewSiteUpdate = gid('admin-view-siteupdate');
 
         var activeBtnClass = 'px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer bg-gradient-to-r from-rose-500 to-purple-600 text-white shadow-md shadow-rose-500/20 whitespace-nowrap';
@@ -2614,6 +2672,7 @@ var Profile = {
         if (btnMessages) btnMessages.className = tab === 'messages' ? activeBtnClass : inactiveBtnClass;
         if (btnAvatars) btnAvatars.className = tab === 'avatars' ? activeBtnClass : inactiveBtnClass;
         if (btnBorders) btnBorders.className = tab === 'borders' ? activeVipBtnClass : inactiveVipBtnClass;
+        if (btnCustomIds) btnCustomIds.className = tab === 'customids' ? activeVipBtnClass : inactiveVipBtnClass;
         if (btnSiteUpdate) btnSiteUpdate.className = tab === 'siteupdate' ? activeBtnClass : inactiveBtnClass;
 
         if (viewAnalytics) viewAnalytics.classList.toggle('hidden', tab !== 'analytics');
@@ -2631,6 +2690,7 @@ var Profile = {
         if (viewMessages) viewMessages.classList.toggle('hidden', tab !== 'messages');
         if (viewAvatars) viewAvatars.classList.toggle('hidden', tab !== 'avatars');
         if (viewBorders) viewBorders.classList.toggle('hidden', tab !== 'borders');
+        if (viewCustomIds) viewCustomIds.classList.toggle('hidden', tab !== 'customids');
         if (viewSiteUpdate) viewSiteUpdate.classList.toggle('hidden', tab !== 'siteupdate');
 
         if (tab === 'analytics') {
@@ -2663,6 +2723,8 @@ var Profile = {
             Profile.renderAdminAvatarsTab();
         } else if (tab === 'borders') {
             Profile.renderAdminBordersTab();
+        } else if (tab === 'customids') {
+            Profile.loadAdminCustomIdsTab();
         } else if (tab === 'siteupdate') {
             Profile.renderAdminSiteUpdateTab();
         }
@@ -5911,7 +5973,7 @@ var Profile = {
                             <label class="text-xs font-bold text-white/80 flex items-center gap-1">
                                 <i data-lucide="fingerprint" class="w-3.5 h-3.5 text-amber-400"></i> User ID
                             </label>
-                            <input id="admin-ban-form-userid" type="text" oninput="Profile.onBanFormInput('userid')" placeholder="Contoh: u_172..." class="w-full bg-white/5 border border-white/10 focus:border-amber-500 rounded-xl px-3 py-2.5 text-xs text-white placeholder-white/30 focus:outline-none transition-all font-mono">
+                            <input id="admin-ban-form-userid" type="text" oninput="Profile.onBanFormInput('userid')" placeholder="Contoh: 8589478687" class="w-full bg-white/5 border border-white/10 focus:border-amber-500 rounded-xl px-3 py-2.5 text-xs text-white placeholder-white/30 focus:outline-none transition-all font-mono">
                         </div>
 
                         <!-- Field 1: Username -->
@@ -12214,6 +12276,605 @@ var Profile = {
         } else {
             el.classList.add('hidden');
             if (chev) chev.style.transform = 'rotate(0deg)';
+        }
+    },
+
+    // ==========================================
+    // CUSTOM ID VIP & TRIAL MANAGEMENT (ADMIN & USER)
+    // ==========================================
+    async loadAdminCustomIdsTab(silent) {
+        var container = gid('admin-customids-container');
+        var token = Profile.getAdminToken();
+        if (!container || !token) return;
+
+        if (!silent) {
+            container.innerHTML = `
+            <div class="text-center py-12 text-white/50 space-y-2">
+                <i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto text-amber-400"></i>
+                <p class="text-xs font-semibold">Memuat data Custom ID VIP...</p>
+            </div>`;
+            if (window.lucide) lucide.createIcons();
+        }
+
+        try {
+            var res = await fetch('/api/user-auth?action=get_custom_ids', {
+                headers: { 'x-admin-token': token }
+            });
+            var data = await res.json();
+            var customIds = (data && data.status && Array.isArray(data.customIds)) ? data.customIds : [];
+
+            var badgeEl = gid('admin-customids-count-badge');
+            if (badgeEl) {
+                if (customIds.length > 0) {
+                    badgeEl.innerText = customIds.length;
+                    badgeEl.classList.remove('hidden');
+                } else {
+                    badgeEl.classList.add('hidden');
+                }
+            }
+
+            container.innerHTML = `
+            <!-- HEADER FORM PUBLIKASI CUSTOM ID VIP -->
+            <div class="p-4 sm:p-5 rounded-2xl bg-[#13151f] border border-amber-500/30 space-y-4 shadow-xl">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center justify-center shrink-0 shadow-inner font-black">
+                        <i data-lucide="fingerprint" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm sm:text-base font-extrabold text-white tracking-tight uppercase">custom id vip</h3>
+                        <p class="text-xs text-white/60">Atur dan publikasikan Custom ID khusus Member VIP & Trial ID</p>
+                    </div>
+                </div>
+
+                <!-- FORM INPUT ATUR ID -->
+                <div class="p-4 rounded-xl bg-black/40 border border-white/10 space-y-3">
+                    <!-- 1. Custom ID Input -->
+                    <div class="space-y-1">
+                        <label class="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                            <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                            <span>ketik dibawah untuk ngetur id</span>
+                        </label>
+                        <input type="text" id="admin-customid-val-input" placeholder="Contoh: 1111111111 atau SULTAN88" class="w-full bg-black/60 border border-amber-500/30 focus:border-amber-400 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono font-bold tracking-wider placeholder-white/30 outline-none transition-all shadow-inner">
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <!-- 2. Target Username (Optional) -->
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-white/80 flex items-center gap-1.5">
+                                <i data-lucide="user" class="w-3.5 h-3.5 text-sky-400"></i>
+                                <span>username</span>
+                            </label>
+                            <input type="text" id="admin-customid-username-input" placeholder="Kosongkan untuk Publik (Semua VIP)" class="w-full bg-black/60 border border-white/20 focus:border-sky-400 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-white/30 outline-none transition-all shadow-inner">
+                            <p class="text-[10px] text-white/40 italic">* Tanpa username publik ke semua pengguna vip</p>
+                        </div>
+
+                        <!-- 3. Masa Aktif / Trial -->
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-white/80 flex items-center gap-1.5">
+                                <i data-lucide="clock" class="w-3.5 h-3.5 text-emerald-400"></i>
+                                <span>mau berapa hari minggu bulan tahun 1 jam</span>
+                            </label>
+                            <div class="space-y-2">
+                                <select id="admin-customid-duration-select" onchange="var customInput=gid('admin-customid-duration-days-input'); if(customInput) customInput.value = this.value === 'custom' ? '7' : this.value;" class="w-full bg-black/60 border border-white/20 focus:border-emerald-400 rounded-xl px-3.5 py-2 text-xs text-white outline-none transition-all font-semibold cursor-pointer">
+                                    <option value="1hour" class="bg-[#141720]">1 Jam (Trial Singkat)</option>
+                                    <option value="1day" class="bg-[#141720]">1 Hari (24 Jam)</option>
+                                    <option value="7days" selected class="bg-[#141720]">1 Minggu (7 Hari)</option>
+                                    <option value="1month" class="bg-[#141720]">1 Bulan (30 Hari)</option>
+                                    <option value="1year" class="bg-[#141720]">1 Tahun (365 Hari)</option>
+                                    <option value="permanent" class="bg-[#141720]">Permanen (Tanpa Masa Expired)</option>
+                                </select>
+                                <div class="flex items-center gap-2">
+                                    <input type="text" id="admin-customid-duration-days-input" placeholder="Atau ketik durasi (cth: 3days, 12hours, permanent)" value="7days" class="w-full bg-black/60 border border-emerald-500/30 focus:border-emerald-400 rounded-xl px-3 py-2 text-xs text-white font-mono placeholder-white/30 outline-none transition-all">
+                                </div>
+                            </div>
+                            <p class="text-[10px] text-emerald-400/80 italic">* klo diketik permanen dia ga ada masa abisnya</p>
+                        </div>
+                    </div>
+
+                    <!-- Button Publish -->
+                    <div class="pt-1">
+                        <button type="button" onclick="Profile.adminPublishCustomId()" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 active:scale-95 text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all cursor-pointer">
+                            <i data-lucide="sparkles" class="w-4 h-4"></i>
+                            <span>Publikasikan Custom ID VIP</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DAFTAR CUSTOM ID YANG SUDAH DIPUBLIKASIKAN -->
+            <div class="p-4 rounded-2xl bg-[#13151f] border border-white/10 space-y-3">
+                <div class="flex items-center justify-between">
+                    <h4 class="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                        <i data-lucide="list" class="w-4 h-4"></i>
+                        <span>Daftar Custom ID VIP Dipublikasi (${customIds.length})</span>
+                    </h4>
+                    <span class="text-[10px] text-white/40">Dapat dihapus kapan saja</span>
+                </div>
+
+                ${customIds.length === 0 ? `
+                    <p class="text-xs text-white/50 text-center py-6">Belum ada Custom ID VIP yang dipublikasikan oleh admin.</p>
+                ` : `
+                    <div class="space-y-2">
+                        ${customIds.map(function(item) {
+                            var isPerm = item.isPermanent || item.duration === 'permanent' || item.duration === 'permanen';
+                            var durText = isPerm ? 'Permanen' : (item.duration || 'Trial');
+                            var targetText = item.targetUsername ? ('Khusus @' + item.targetUsername) : 'Publik (Semua VIP)';
+                            
+                            return `
+                            <div class="p-3 rounded-xl bg-black/40 border border-white/10 hover:border-amber-500/30 flex items-center justify-between gap-3 transition-all">
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="text-xs font-black text-amber-300 font-mono bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-lg select-all">
+                                            ${Profile.escapeHtml(item.customId)}
+                                        </span>
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-md ${isPerm ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'}">
+                                            ${durText}
+                                        </span>
+                                    </div>
+                                    <p class="text-[11px] text-white/50 mt-1 truncate">
+                                        Target: <strong class="text-white">${Profile.escapeHtml(targetText)}</strong> &bull; Dibuat: ${new Date(item.createdAt || Date.now()).toLocaleDateString('id-ID')}
+                                    </p>
+                                </div>
+                                <button type="button" onclick="Profile.adminDeleteCustomId('${Profile.escapeHtml(item.id || item.customId)}', '${Profile.escapeHtml(item.customId)}')" class="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-bold flex items-center gap-1 shrink-0 active:scale-95 transition-all cursor-pointer" title="Hapus Custom ID">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                    <span>Hapus</span>
+                                </button>
+                            </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `}
+            </div>
+            `;
+
+            if (window.lucide) lucide.createIcons();
+        } catch (e) {
+            container.innerHTML = `<p class="text-xs text-rose-400 text-center py-6">Gagal memuat Custom ID: ${e.message}</p>`;
+        }
+    },
+
+    async adminPublishCustomId() {
+        var customIdEl = gid('admin-customid-val-input');
+        var usernameEl = gid('admin-customid-username-input');
+        var durationEl = gid('admin-customid-duration-select');
+        var durationDaysInput = gid('admin-customid-duration-days-input');
+
+        var customId = customIdEl ? customIdEl.value.trim() : '';
+        var targetUsername = usernameEl ? usernameEl.value.replace(/^@/, '').trim() : '';
+        var duration = (durationDaysInput && durationDaysInput.value.trim()) ? durationDaysInput.value.trim() : (durationEl ? durationEl.value : '7days');
+
+        if (!customId) {
+            if (typeof showToast === 'function') showToast('Ketik Custom ID terlebih dahulu!');
+            return;
+        }
+
+        var token = Profile.getAdminToken();
+        try {
+            var res = await fetch('/api/user-auth?action=add_custom_id', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-admin-token': token
+                },
+                body: JSON.stringify({ customId: customId, targetUsername: targetUsername, duration: duration })
+            });
+            var data = await res.json();
+            if (data && data.status) {
+                if (typeof showToast === 'function') showToast(data.message || 'Custom ID VIP berhasil dipublikasikan!');
+                if (customIdEl) customIdEl.value = '';
+                if (usernameEl) usernameEl.value = '';
+                Profile.loadAdminCustomIdsTab(false);
+
+                // If assigned to current logged-in user, sync state and refresh profile modal immediately!
+                if (data.assignedTo && Auth.currentUser && (Auth.currentUser.username || '').toLowerCase() === data.assignedTo.toLowerCase()) {
+                    Auth.currentUser.customId = customId;
+                    Auth.currentUser.id = customId;
+                    Auth.currentUser.originalId = Auth.currentUser.originalId || '8589478687';
+                    if (data.customIdRecord) {
+                        Auth.currentUser.customIdExpiresAt = data.customIdRecord.isPermanent ? null : (Date.now() + (data.customIdRecord.durationMs || 0));
+                        Auth.currentUser.isCustomIdTrial = !data.customIdRecord.isPermanent;
+                    }
+                    try { localStorage.setItem('musifystar_auth_user', JSON.stringify(Auth.currentUser)); } catch(e){}
+                    if (gid('user-profile-modal')) {
+                        Auth.openUserProfileModal();
+                    }
+                }
+            } else {
+                if (typeof showToast === 'function') showToast(data?.message || 'Gagal mempublikasikan Custom ID');
+            }
+        } catch (e) {
+            if (typeof showToast === 'function') showToast('Terjadi kesalahan koneksi: ' + e.message);
+        }
+    },
+
+    async adminDeleteCustomId(idOrCustomId, displayStr) {
+        if (!confirm(`Hapus Custom ID "${displayStr}"? Pengguna yang menggunakan ID ini akan otomatis kembali ke ID asal.`)) return;
+
+        var token = Profile.getAdminToken();
+        try {
+            var res = await fetch('/api/user-auth?action=delete_custom_id', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-admin-token': token
+                },
+                body: JSON.stringify({ customId: idOrCustomId })
+            });
+            var data = await res.json();
+            if (data && data.status) {
+                if (typeof showToast === 'function') showToast(data.message || 'Custom ID berhasil dihapus!');
+                Profile.loadAdminCustomIdsTab(false);
+                // If current user had this customId, revert local state too
+                if (Auth.currentUser && String(Auth.currentUser.customId) === String(displayStr || idOrCustomId)) {
+                    Auth.currentUser.customId = null;
+                    if (Auth.currentUser.originalId) Auth.currentUser.id = Auth.currentUser.originalId;
+                    Auth.currentUser.customIdExpiresAt = null;
+                    Auth.currentUser.isCustomIdTrial = false;
+                    try { localStorage.setItem('musifystar_auth_user', JSON.stringify(Auth.currentUser)); } catch(e){}
+                    if (gid('user-profile-modal')) {
+                        Auth.openUserProfileModal();
+                    }
+                }
+            } else {
+                if (typeof showToast === 'function') showToast(data?.message || 'Gagal menghapus Custom ID');
+            }
+        } catch (e) {
+            if (typeof showToast === 'function') showToast('Terjadi kesalahan koneksi: ' + e.message);
+        }
+    },
+
+    async syncAndRenderCustomIdProfile() {
+        var u = Auth.currentUser;
+        var isVip = Profile.isCurrentUserVip();
+        if (!u || !isVip) {
+            var cEl = gid('prof-card-custom-id-container');
+            if (cEl) cEl.innerHTML = '';
+            var tEl = gid('modal-vip-customid-trial-info');
+            if (tEl) tEl.innerHTML = '';
+            return;
+        }
+
+        try {
+            var token = localStorage.getItem('musifystar_auth_token') || sessionStorage.getItem('musifystar_auth_token') || '';
+            var res = await fetch('/api/user-auth?action=get_custom_ids', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            var data = await res.json();
+            if (data && data.status) {
+                if (data.user) {
+                    var sUser = data.user;
+                    u.id = sUser.id;
+                    u.customId = sUser.customId;
+                    u.originalId = sUser.originalId;
+                    u.customIdExpiresAt = sUser.customIdExpiresAt;
+                    u.isCustomIdTrial = sUser.isCustomIdTrial;
+                    try { localStorage.setItem('musifystar_auth_user', JSON.stringify(u)); } catch(e){}
+
+                    var profCardUid = gid('prof-card-user-id');
+                    if (profCardUid) profCardUid.textContent = sUser.customId || sUser.id;
+                }
+                Profile.renderVipTrialStatusBox(data);
+                Profile.loadUserCustomIdSection('prof-card-custom-id-container', data);
+            }
+        } catch(e) {
+            console.error('syncAndRenderCustomIdProfile error:', e);
+        }
+    },
+
+    renderVipTrialStatusBox(data) {
+        var el = gid('modal-vip-customid-trial-info');
+        if (!el) return;
+
+        var u = Auth.currentUser;
+        var isVip = Profile.isCurrentUserVip();
+        if (!isVip) {
+            el.innerHTML = '';
+            el.classList.add('hidden');
+            return;
+        }
+
+        var currentCustomId = data ? data.currentUserCustomId : (u ? u.customId : null);
+        var currentOriginalId = data ? data.currentUserOriginalId : (u ? u.originalId || u.id : '');
+        var expiresAt = data ? data.currentUserCustomIdExpiresAt : (u ? u.customIdExpiresAt : null);
+
+        var timeRemainingText = '';
+        if (currentCustomId && expiresAt && expiresAt > Date.now()) {
+            var diffMs = expiresAt - Date.now();
+            var diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            var diffDays = Math.floor(diffHours / 24);
+            if (diffDays >= 1) {
+                timeRemainingText = `${diffDays} Hari ${diffHours % 24} Jam`;
+            } else {
+                timeRemainingText = `${diffHours} Jam ${Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))} Menit`;
+            }
+        } else if (currentCustomId && !expiresAt) {
+            timeRemainingText = 'Permanen (Tanpa Expired)';
+        }
+
+        el.classList.remove('hidden');
+
+        if (currentCustomId) {
+            el.className = 'p-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/15 border border-amber-400/40 space-y-1.5 shadow-sm my-1.5';
+            el.innerHTML = `
+                <div class="flex items-center justify-between text-[10.5px]">
+                    <span class="text-amber-300 font-extrabold flex items-center gap-1">
+                        <i data-lucide="fingerprint" class="w-3.5 h-3.5 text-amber-400"></i>
+                        <span>Status Custom ID VIP:</span>
+                    </span>
+                    <span class="font-mono font-black text-amber-300 text-xs tracking-wider">${Profile.escapeHtml(currentCustomId)}</span>
+                </div>
+                <div class="flex items-center justify-between text-[10px]">
+                    <span class="text-white/60">Masa Trial ID:</span>
+                    <span class="font-bold text-emerald-400 font-mono flex items-center gap-1">
+                        <i data-lucide="clock" class="w-3 h-3"></i> ${timeRemainingText}
+                    </span>
+                </div>
+                ${expiresAt ? `
+                <p class="text-[9px] text-white/50 leading-tight">
+                    * Masa trial custom ID aktif. Jika masa trial habis, ID akun otomatis kembali ke ID semula (<span class="font-mono text-amber-300/80 font-bold">${Profile.escapeHtml(currentOriginalId)}</span>).
+                </p>
+                ` : `
+                <p class="text-[9px] text-amber-400/80 leading-tight font-semibold">
+                    * Custom ID VIP Permanen (tanpa batasan kedaluwarsa).
+                </p>
+                `}
+                <div class="pt-0.5 flex items-center gap-1.5">
+                    <button type="button" onclick="Auth.openCustomIdPickerModal()" class="flex-1 py-1 px-2 rounded-lg bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border border-amber-400/30 text-[9.5px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-all">
+                        <i data-lucide="sparkles" class="w-3 h-3"></i>
+                        <span>Katalog ID VIP</span>
+                    </button>
+                    <button type="button" onclick="Profile.userRevertCustomId()" class="py-1 px-2 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 text-[9.5px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-all">
+                        <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+                        <span>Lepas ID</span>
+                    </button>
+                </div>
+            `;
+        } else {
+            el.className = 'p-2 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5 my-1.5';
+            el.innerHTML = `
+                <div class="flex items-center justify-between text-[10px]">
+                    <span class="text-white/60 flex items-center gap-1">
+                        <i data-lucide="fingerprint" class="w-3 h-3 text-amber-400/70"></i>
+                        <span>Custom ID VIP:</span>
+                    </span>
+                    <span class="text-white/50 italic">Belum Dipasang</span>
+                </div>
+                <div class="flex items-center justify-between text-[10px]">
+                    <span class="text-white/40">ID Akun Aktif:</span>
+                    <span class="font-mono text-amber-300 font-bold">${Profile.escapeHtml(u ? u.id : '')}</span>
+                </div>
+                <button type="button" onclick="Auth.openCustomIdPickerModal()" class="w-full py-1.5 px-2 rounded-lg bg-gradient-to-r from-amber-400/20 via-yellow-400/25 to-amber-400/20 hover:from-amber-400/30 hover:to-yellow-400/30 text-amber-300 border border-amber-400/35 text-[10px] font-extrabold flex items-center justify-center gap-1 cursor-pointer transition-all">
+                    <i data-lucide="sparkles" class="w-3 h-3 text-amber-300"></i>
+                    <span>Pilih & Pasang Custom ID VIP</span>
+                </button>
+            `;
+        }
+        if (window.lucide) lucide.createIcons();
+    },
+
+    toggleCustomIdPanel() {
+        if (typeof Auth !== 'undefined' && typeof Auth.toggleCustomIdPanel === 'function') {
+            return Auth.toggleCustomIdPanel();
+        }
+        var content = gid('customid-panel-content');
+        var chevron = gid('customid-panel-chevron');
+        if (!content) return;
+        if (content.classList.contains('hidden')) {
+            content.classList.remove('hidden');
+            if (chevron) chevron.style.transform = 'rotate(180deg)';
+        } else {
+            content.classList.add('hidden');
+            if (chevron) chevron.style.transform = 'rotate(0deg)';
+        }
+    },
+
+    async loadUserCustomIdSection(containerId, preloadedData) {
+        var container = gid(containerId);
+        if (!container) return;
+
+        var u = Auth.currentUser;
+        var isVip = Profile.isCurrentUserVip();
+
+        // Non-VIP users DO NOT see this section
+        if (!isVip) {
+            container.innerHTML = '';
+            return;
+        }
+
+        try {
+            var data = preloadedData;
+            if (!data) {
+                var token = localStorage.getItem('musifystar_auth_token') || sessionStorage.getItem('musifystar_auth_token') || '';
+                var res = await fetch('/api/user-auth?action=get_custom_ids', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                data = await res.json();
+            }
+
+            var customIds = (data && data.status && Array.isArray(data.customIds)) ? data.customIds : [];
+            var currentCustomId = data ? data.currentUserCustomId : (u ? u.customId : null);
+            var currentOriginalId = data ? data.currentUserOriginalId : (u ? u.originalId || u.id : '');
+            var expiresAt = data ? data.currentUserCustomIdExpiresAt : (u ? u.customIdExpiresAt : null);
+
+            var timeRemainingText = '';
+            var isTrialActive = false;
+            if (currentCustomId && expiresAt && expiresAt > Date.now()) {
+                isTrialActive = true;
+                var diffMs = expiresAt - Date.now();
+                var diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                var diffDays = Math.floor(diffHours / 24);
+                if (diffDays >= 1) {
+                    timeRemainingText = `Sisa Trial ID: ${diffDays} Hari ${diffHours % 24} Jam`;
+                } else {
+                    timeRemainingText = `Sisa Trial ID: ${diffHours} Jam ${Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))} Menit`;
+                }
+            } else if (currentCustomId && !expiresAt) {
+                timeRemainingText = 'Status Custom ID: Permanen VIP';
+            }
+
+            // Public IDs only (without targetUsername)
+            var publicIds = customIds.filter(function(item) {
+                return !item.targetUsername || item.targetUsername.trim() === '';
+            });
+
+            container.innerHTML = `
+            <div class="p-4 rounded-2xl bg-[#12141c]/90 border border-amber-400/30 space-y-3.5 backdrop-blur-xl shadow-xl">
+                <!-- Action Header -->
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i>
+                        <span>Kelola Custom ID VIP</span>
+                    </span>
+                    <button type="button" onclick="Auth.openCustomIdPickerModal()" class="py-1 px-2.5 rounded-lg bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border border-amber-400/35 text-[10px] font-extrabold flex items-center gap-1 transition-all cursor-pointer">
+                        <i data-lucide="grid" class="w-3 h-3"></i>
+                        <span>Katalog Full</span>
+                    </button>
+                </div>
+
+                ${currentCustomId ? `
+                    <!-- ID Sedang Aktif -->
+                    <div class="p-3.5 rounded-xl bg-black/60 border border-amber-400/40 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-bold text-white/60">ID VIP Terpasang:</span>
+                            <span class="text-sm font-black text-amber-300 font-mono tracking-wider drop-shadow-sm">${Profile.escapeHtml(currentCustomId)}</span>
+                        </div>
+                        ${timeRemainingText ? `
+                            <p class="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
+                                <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+                                <span>${timeRemainingText}</span>
+                            </p>
+                        ` : ''}
+                        <p class="text-[10px] text-white/40 leading-snug">
+                            * Jika masa trial habis, ID akun akan otomatis kembali ke ID 10-digit semula (${Profile.escapeHtml(currentOriginalId)}).
+                        </p>
+                        ${isTrialActive ? `
+                            <p class="text-[9.5px] text-amber-300/80 italic font-semibold">
+                                * Anda sedang memakai Trial ID. Untuk memilih ID lain, tunggu masa trial habis atau klik Lepas ID.
+                            </p>
+                        ` : ''}
+                        <div class="pt-1">
+                            <button type="button" onclick="Profile.userRevertCustomId()" class="w-full py-2 px-3 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white/90 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer">
+                                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                                <span>Lepas & Kembali ke User ID Semula</span>
+                            </button>
+                        </div>
+                    </div>
+                ` : `
+                    <!-- Pilihan ID Publik Dari Admin (Border Profil Card Style) -->
+                    ${publicIds.length > 0 ? `
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between">
+                                <label class="text-xs font-bold text-white/80 block">Pilihan Custom ID Publik VIP:</label>
+                                <span class="text-[10px] text-amber-400 font-mono font-bold">${publicIds.length} ID Tersedia</span>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                ${publicIds.map(function(c) {
+                                    var isP = c.isPermanent || c.duration === 'permanent' || c.duration === 'permanen' || !c.durationMs;
+                                    var durBadge = isP ? 'PERMANEN' : (c.duration ? `TRIAL ${c.duration.toUpperCase()}` : 'TRIAL');
+
+                                    return `
+                                    <div class="p-3 rounded-xl bg-black/50 hover:bg-black/70 border border-white/10 hover:border-amber-400/50 flex items-center justify-between gap-2 transition-all">
+                                        <div class="min-w-0">
+                                            <span class="text-xs font-black font-mono text-white tracking-wider block truncate">${Profile.escapeHtml(c.customId)}</span>
+                                            <span class="text-[9px] font-bold ${isP ? 'text-amber-400' : 'text-emerald-400'}">${durBadge}</span>
+                                        </div>
+                                        <button type="button" onclick="Profile.userEquipDirectCustomId('${Profile.escapeHtml(c.customId)}')" class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-black font-black text-[11px] shadow-sm active:scale-95 transition-all cursor-pointer shrink-0">
+                                            Pasang
+                                        </button>
+                                    </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    ` : `
+                        <p class="text-xs text-white/50 p-3 rounded-xl bg-white/[0.02] border border-white/5 text-center leading-relaxed">
+                            Belum ada Custom ID publik yang disediakan oleh Admin. Admin dapat menambahkan Custom ID baru melalui Admin Panel.
+                        </p>
+                    `}
+                `}
+            </div>
+            `;
+
+            if (window.lucide) lucide.createIcons();
+        } catch(e) {
+            console.error('loadUserCustomIdSection error:', e);
+        }
+    },
+
+    async userEquipDirectCustomId(customId) {
+        if (!customId) return;
+        var token = localStorage.getItem('musifystar_auth_token') || sessionStorage.getItem('musifystar_auth_token') || '';
+        try {
+            var res = await fetch('/api/user-auth?action=equip_custom_id', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify({ customId: customId })
+            });
+            var data = await res.json();
+            if (data && data.status) {
+                if (typeof showToast === 'function') showToast(data.message || 'Custom ID VIP berhasil dipasang!');
+                if (Auth.currentUser && data.user) {
+                    Auth.currentUser.id = data.user.id;
+                    Auth.currentUser.customId = data.user.customId;
+                    Auth.currentUser.originalId = data.user.originalId;
+                    Auth.currentUser.customIdExpiresAt = data.user.customIdExpiresAt;
+                    Auth.currentUser.isCustomIdTrial = data.user.isCustomIdTrial;
+                    try { localStorage.setItem('musifystar_auth_user', JSON.stringify(Auth.currentUser)); } catch(e){}
+                }
+                gid('customid-picker-modal')?.remove();
+                if (gid('user-profile-modal')) {
+                    Auth.openUserProfileModal();
+                }
+            } else {
+                if (typeof showToast === 'function') showToast(data?.message || 'Gagal memasang Custom ID');
+            }
+        } catch (e) {
+            if (typeof showToast === 'function') showToast('Terjadi kesalahan koneksi');
+        }
+    },
+
+    async userEquipCustomId(selectId) {
+        var selectEl = gid(selectId);
+        var customId = selectEl ? selectEl.value : '';
+        if (!customId) return;
+        return Profile.userEquipDirectCustomId(customId);
+    },
+
+    async userRevertCustomId() {
+        if (!confirm('Lepas Custom ID dan kembali ke User ID 10-digit semula?')) return;
+        var token = localStorage.getItem('musifystar_auth_token') || sessionStorage.getItem('musifystar_auth_token') || '';
+        try {
+            var res = await fetch('/api/user-auth?action=revert_custom_id', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                }
+            });
+            var data = await res.json();
+            if (data && data.status) {
+                if (typeof showToast === 'function') showToast(data.message || 'Berhasil kembali ke User ID semula!');
+                if (Auth.currentUser && data.user) {
+                    Auth.currentUser.id = data.user.id;
+                    Auth.currentUser.customId = null;
+                    Auth.currentUser.originalId = data.user.originalId;
+                    Auth.currentUser.customIdExpiresAt = null;
+                    Auth.currentUser.isCustomIdTrial = false;
+                    try { localStorage.setItem('musifystar_auth_user', JSON.stringify(Auth.currentUser)); } catch(e){}
+                }
+                gid('customid-picker-modal')?.remove();
+                if (gid('user-profile-modal')) {
+                    Auth.openUserProfileModal();
+                }
+            } else {
+                if (typeof showToast === 'function') showToast(data?.message || 'Gagal kembali ke ID semula');
+            }
+        } catch (e) {
+            if (typeof showToast === 'function') showToast('Terjadi kesalahan koneksi');
         }
     },
 
