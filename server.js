@@ -7,6 +7,7 @@ const path = require('path');
 const https = require('https');
 const http = require('http');
 const fs = require('fs');
+const Security = require('./api/security.js');
 
 const ipv4HttpsAgent = new https.Agent({ family: 4, keepAlive: true, maxSockets: 50 });
 const ipv4HttpAgent = new http.Agent({ family: 4, keepAlive: true, maxSockets: 50 });
@@ -25,74 +26,80 @@ app.use((req, res, next) => {
     next();
 });
 
-// Known Scraper / GetWeb / Site Ripper / Vulnerability Prober signatures
-const FORBIDDEN_BOT_PATTERNS = [
-    /getweb/i,
-    /webget/i,
-    /httrack/i,
-    /teleport/i,
-    /offline\s*explorer/i,
-    /webcopier/i,
-    /site-sucker/i,
-    /sitesucker/i,
-    /pagegrabber/i,
-    /wget/i,
-    /python-requests/i,
-    /python-urllib/i,
-    /aiohttp/i,
-    /scrapy/i,
-    /sqlmap/i,
-    /nikto/i,
-    /acunetix/i,
-    /masscan/i,
-    /dirbuster/i,
-    /gobuster/i,
-    /nmap/i,
-    /zgrab/i,
-    /censys/i,
-    /burpcollaborator/i,
-    /libwww-perl/i
-];
-
-// Strict Block: prevent any client/DevTools probe/getweb scraper from reading server files or secrets
+// Strict Security Firewall: IP Blacklist Lockdown + GetWeb / Scraper Auto-Ban & Corrupt Dummy File response
 app.use((req, res, next) => {
     const rawPath = (req.path || '').toLowerCase();
     const rawUrl = (req.url || '').toLowerCase();
     const ua = (req.headers['user-agent'] || '').toLowerCase();
-    const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '';
-    const isLocalhost = ip.includes('127.0.0.1') || ip.includes('::1') || ip.includes('localhost');
+    const rawIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '';
+    const cleanIp = Security.normalizeIp(rawIp);
+    const isLocalhost = cleanIp === '127.0.0.1' || cleanIp === '::1';
+    let isImmune = isLocalhost || Security.isImmuneIp(cleanIp);
 
-    // 1. Block Automated Site Downloaders & Scrapers (getweb, httrack, scrapy, python bots, etc.)
-    if (ua) {
-        for (const pattern of FORBIDDEN_BOT_PATTERNS) {
-            if (pattern.test(ua)) {
-                return res.status(403).json({
-                    status: false,
-                    message: 'Akses ditolak: Bot pengunduh situs (scrapers/getweb) dilarang mengakses berkas sistem.'
-                });
-            }
-        }
-        // Block external curl requests (allow internal curl for localhost dev tests/health checks)
-        if (!isLocalhost && (/^curl\//i.test(ua) || ua.includes('curl/'))) {
-            return res.status(403).json({
-                status: false,
-                message: 'Akses ditolak: Permintaan via curl eksternal dinonaktifkan demi keamanan.'
-            });
+    // Dynamic Admin Auto-Immunity: If request carries a valid admin session, auto-whitelist new IP immediately
+    if (!isImmune) {
+        const tokenCandidate = req.headers['authorization'] || req.headers['x-auth-token'] || req.headers['x-admin-token'] || '';
+        if (tokenCandidate) {
+            try {
+                const UserAuth = require('./api/user-auth.js');
+                const tokenPayload = UserAuth.verifyUserToken(tokenCandidate);
+                if (tokenPayload) {
+                    const uname = (tokenPayload.u || '').toLowerCase().trim();
+                    const uid = String(tokenPayload.uid || '');
+                    if (uname === 'abil' || uname === 'nabil' || uid === '8589478687') {
+                        Security.addImmuneIp(cleanIp);
+                        isImmune = true;
+                    }
+                }
+            } catch(e) {}
         }
     }
 
-    // 2. Block Path Traversal and encoded attack payloads
+    // 1. IP Ban Enforcement: Block all requests from banned IPs across the entire website
+    const banCheck = Security.getIpBanStatus(cleanIp);
+    if (!isImmune && banCheck.isIpBanned) {
+        // If request is from scraper, bot, tool, or asset download, feed corrupt dummy empty file
+        if (Security.isBotOrScraper(ua) || rawPath.endsWith('.js') || rawPath.endsWith('.css') || rawPath.endsWith('.json') || rawPath.endsWith('.mp3')) {
+            return Security.serveCorruptedDummyFile(res);
+        }
+        // If API route, return 403 Forbidden with ban details
+        if (rawPath.startsWith('/api/')) {
+            return res.status(403).json({
+                status: false,
+                ipBanned: true,
+                banned: true,
+                ban: banCheck,
+                message: 'ALAMAT IP ANDA DIBLOKIR: Pelanggaran keamanan atau manipulasi sistem terdeteksi.'
+            });
+        }
+        // If browser HTML request, send full-screen locked ban page
+        return res.status(403).send(Security.getIpBannedHtmlPage(cleanIp, banCheck));
+    }
+
+    // 2. Auto-Ban & Corrupt Dummy Response for GetWeb, Site Rippers, Scrapers & Automated Downloaders
+    if (!isImmune && Security.isBotOrScraper(ua)) {
+        Security.banIp(cleanIp, `Percobaan unduhan situs (GetWeb/Scraper/Ripper) terdeteksi: ${ua.slice(0, 50)}`, { ua, path: rawPath });
+        return Security.serveCorruptedDummyFile(res);
+    }
+
+    // Block external curl requests (allow internal curl for localhost dev tests/health checks)
+    if (!isImmune && (/^curl\//i.test(ua) || ua.includes('curl/'))) {
+        Security.banIp(cleanIp, 'Percobaan akses API via curl eksternal tanpa browser sah.', { ua, path: rawPath });
+        return Security.serveCorruptedDummyFile(res);
+    }
+
+    // 3. Block Path Traversal and encoded attack payloads
     try {
         const decodedUrl = decodeURIComponent(rawUrl);
         if (decodedUrl.includes('..') || rawUrl.includes('..') || rawUrl.includes('%2e%2e')) {
-            return res.status(403).json({
-                status: false,
-                message: 'Akses ditolak: Upaya path traversal diblokir oleh sistem.'
-            });
+            if (!isImmune) {
+                Security.banIp(cleanIp, `Upaya path traversal ilegal: ${rawUrl.slice(0, 50)}`);
+            }
+            return Security.serveCorruptedDummyFile(res);
         }
     } catch(e) {}
 
-    // 3. Strict Block for system files, database dumps, json data files, and internal code
+    // 4. Strict Block for system files, database dumps, json data files, and internal code
     const isSensitive = 
         rawPath.startsWith('/.') ||
         rawPath.includes('/.env') ||
@@ -117,10 +124,10 @@ app.use((req, res, next) => {
         (rawPath.startsWith('/api/') && rawPath.endsWith('.js'));
 
     if (isSensitive) {
-        return res.status(403).json({
-            status: false,
-            message: 'Akses ditolak: Berkas sistem dan konfigurasi database MusifyStar terproteksi penuh oleh server.'
-        });
+        if (!isImmune) {
+            Security.banIp(cleanIp, `Percobaan akses berkas sensitif internal: ${rawPath.slice(0, 50)}`);
+        }
+        return Security.serveCorruptedDummyFile(res);
     }
     next();
 });
@@ -215,6 +222,7 @@ app.all('/api/admin-chat', require('./api/admin-chat.js'));
 app.all('/api/avatars', require('./api/avatars.js'));
 app.all('/api/borders', require('./api/borders.js'));
 app.all('/api/vouchers', require('./api/vouchers.js'));
+app.all('/api/security', Security.securityHandler);
 
 // Proxy audio needs to stream in node, bypassing edge function
 app.get('/api/proxy-audio', (req, res) => {
