@@ -2,8 +2,55 @@ const path = require('path');
 const crypto = require('crypto');
 const adminAuth = require('./admin-auth.js');
 const storage = require('./storage.js');
+const Security = require('./security.js');
 
 const USER_JWT_SECRET = process.env.USER_JWT_SECRET || 'musifystar_user_secret_key_v2_sign_98741';
+
+function generate10DigitUserId(existingUsers) {
+    let newId = '';
+    let isUnique = false;
+    let attempts = 0;
+    const usersArr = Array.isArray(existingUsers) ? existingUsers : [];
+    while (!isUnique && attempts < 500) {
+        attempts++;
+        const first = Math.floor(Math.random() * 9 + 1).toString();
+        let rest = '';
+        for (let i = 0; i < 9; i++) {
+            rest += Math.floor(Math.random() * 10).toString();
+        }
+        newId = first + rest;
+        if (!usersArr.some(u => u && String(u.id || u.userId) === newId)) {
+            isUnique = true;
+        }
+    }
+    return newId;
+}
+
+function parseDurationToMs(durationStr) {
+    const d = String(durationStr || '').toLowerCase().trim();
+    if (!d || d === 'permanent' || d === 'permanen' || d === 'lifetime' || d === 'selamanya') {
+        return null;
+    }
+    const hourMatch = d.match(/^(\d+)\s*(jam|hours?|h)$/);
+    if (hourMatch) return parseInt(hourMatch[1]) * 60 * 60 * 1000;
+
+    const dayMatch = d.match(/^(\d+)\s*(hari|days?|d)$/);
+    if (dayMatch) return parseInt(dayMatch[1]) * 24 * 60 * 60 * 1000;
+
+    const weekMatch = d.match(/^(\d+)\s*(minggu|weeks?|w)$/);
+    if (weekMatch) return parseInt(weekMatch[1]) * 7 * 24 * 60 * 60 * 1000;
+
+    const monthMatch = d.match(/^(\d+)\s*(bulan|months?|mo)$/);
+    if (monthMatch) return parseInt(monthMatch[1]) * 30 * 24 * 60 * 60 * 1000;
+
+    const yearMatch = d.match(/^(\d+)\s*(tahun|years?|y)$/);
+    if (yearMatch) return parseInt(yearMatch[1]) * 365 * 24 * 60 * 60 * 1000;
+
+    const num = parseInt(d);
+    if (!isNaN(num) && num > 0) return num * 24 * 60 * 60 * 1000;
+
+    return 7 * 24 * 60 * 60 * 1000;
+}
 
 function safeCompare(a, b) {
     if (typeof a !== 'string' || typeof b !== 'string') return false;
@@ -291,15 +338,45 @@ async function readDbAsync(banRegistry) {
         if (!Array.isArray(result.users)) result.users = [];
         if (!result.sessions || typeof result.sessions !== 'object') result.sessions = {};
 
-        // Anti-Tamper Ban Registry Verification
+        // Anti-Tamper Ban Registry Verification & Auto 10-Digit ID Migration
         const regMap = banRegistry || await readBanRegistryAsync();
+        let dbModified = false;
         if (result.users && Array.isArray(result.users)) {
             result.users.forEach(u => {
-                if (u && u.id) {
-                    if (u.rawEmail) {
-                        u.email = u.rawEmail;
-                    } else if (u.email && !u.rawEmail && !u.email.includes('***')) {
-                        u.rawEmail = u.email;
+                if (u) {
+                    const isMaster = (u.rawEmail || u.email || '').toLowerCase().trim() === 'jrnabil570@gmail.com' || (u.username || '').toLowerCase().trim() === 'nabil';
+                    const isTenDigits = typeof u.id === 'string' && /^\d{10}$/.test(u.id);
+                    if (!isTenDigits || (isMaster && u.id !== '8589478687')) {
+                        const oldId = u.id;
+                        const newId = isMaster ? '8589478687' : generate10DigitUserId(result.users);
+                        u.id = newId;
+                        dbModified = true;
+                        if (oldId && result.sessions) {
+                            Object.keys(result.sessions).forEach(tok => {
+                                const sess = result.sessions[tok];
+                                if (sess && (sess.userId === oldId || (sess.userId && sess.userId.id === oldId))) {
+                                    sess.userId = newId;
+                                }
+                            });
+                        }
+                    }
+
+                    if (!u.originalId) {
+                        u.originalId = u.id;
+                    }
+
+                    // Check Custom ID Trial Expiration
+                    if (u.customId && u.customIdExpiresAt && Date.now() > u.customIdExpiresAt) {
+                        u.customId = null;
+                        u.customIdExpiresAt = null;
+                        u.isCustomIdTrial = false;
+                        u.customIdLabel = null;
+                        if (u.originalId) {
+                            u.id = u.originalId;
+                        }
+                        dbModified = true;
+                    } else if (u.customId) {
+                        u.id = u.customId;
                     }
                     const emailKey = (u.rawEmail || u.email || '').toLowerCase();
                     const reg = regMap[u.id] ||
@@ -326,6 +403,9 @@ async function readDbAsync(banRegistry) {
                     }
                 }
             });
+        }
+        if (dbModified) {
+            await writeDbAsync(result);
         }
         return result;
     } catch (e) {
@@ -881,9 +961,9 @@ module.exports = async (req, res) => {
         // ==========================================
 
         // Check if current client IP is IP-Banned
-        const ipBanCheck = getIpBanStatus(clientIp, bannedIps);
+        const ipBanCheck = Security.getIpBanStatus(clientIp, bannedIps);
         if (ipBanCheck.isIpBanned) {
-            return res.json({
+            return res.status(403).json({
                 status: false,
                 ipBanned: true,
                 banned: true,
@@ -898,6 +978,23 @@ module.exports = async (req, res) => {
                     banDurationText: ipBanCheck.banDurationText
                 },
                 message: 'ALAMAT IP ANDA DIBLOKIR / DIBANNED KHUSUS OLEH ADMINISTRATOR'
+            });
+        }
+
+        // POST /api/user-auth?action=report_tamper
+        if (action === 'report_tamper') {
+            const reason = (body && body.reason) || 'Percobaan manipulasi status VIP akun lewat DevTools / Console / Storage';
+            const banResult = await Security.banIp(clientIp, reason, {
+                userId: (body && body.userId) || '',
+                username: (body && body.username) || '',
+                detail: (body && body.detail) || ''
+            });
+            return res.status(403).json({
+                status: false,
+                ipBanned: true,
+                banned: true,
+                message: 'Alamat IP Anda telah diblokir secara permanen.',
+                ban: banResult
             });
         }
 
@@ -968,7 +1065,7 @@ module.exports = async (req, res) => {
         }
 
         // GET /api/user-auth?action=me
-        if (req.method === 'GET' || action === 'me') {
+        if (action === 'me' || (!action && req.method === 'GET')) {
             const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') ||
                           req.headers['x-auth-token'] ||
                           req.headers['x-token'] ||
@@ -982,13 +1079,13 @@ module.exports = async (req, res) => {
             let user = null;
 
             if (targetUserId) {
-                user = db.users.find(u => u.id === targetUserId);
+                user = db.users.find(u => u.id === targetUserId || u.originalId === targetUserId);
             }
 
             // Fallback claimed user
             if (!user && (fallbackUserId || fallbackUsername || fallbackEmail)) {
                 user = db.users.find(u => {
-                    if (fallbackUserId && (u.id === fallbackUserId || u.id.toLowerCase() === fallbackUserId.toLowerCase())) return true;
+                    if (fallbackUserId && (u.id === fallbackUserId || (u.originalId && u.originalId === fallbackUserId) || u.id.toLowerCase() === fallbackUserId.toLowerCase())) return true;
                     if (fallbackUsername && u.username && u.username.toLowerCase() === fallbackUsername) return true;
                     if (fallbackEmail && ((u.rawEmail && u.rawEmail.toLowerCase() === fallbackEmail) || (u.email && u.email.toLowerCase() === fallbackEmail))) return true;
                     return false;
@@ -996,6 +1093,15 @@ module.exports = async (req, res) => {
             }
 
             if (user) {
+                // Check if user has an expired trial custom ID
+                if (user.customId && user.customIdExpiresAt && Date.now() > user.customIdExpiresAt) {
+                    user.id = user.originalId || user.id;
+                    user.customId = null;
+                    user.customIdExpiresAt = null;
+                    user.isCustomIdTrial = false;
+                    await writeDbAsync(db);
+                }
+
                 const banStatus = getUserBanStatus(user, banRegistry);
                 if (banStatus.isBanned) {
                     return res.json({
@@ -1005,6 +1111,8 @@ module.exports = async (req, res) => {
                         ban: banStatus,
                         user: {
                             id: user.id,
+                            originalId: user.originalId || user.id,
+                            customId: user.customId || null,
                             username: user.username,
                             email: user.rawEmail || user.email,
                             rawEmail: user.rawEmail || user.email,
@@ -1016,6 +1124,26 @@ module.exports = async (req, res) => {
                 }
 
                 if (targetUserId) {
+                    const vipInfo = resolveUserVipStatus(user);
+                    const claimedVipTier = req.headers['x-claimed-vip-tier'] || (req.query && req.query.claimedVipTier) || (body && body.claimedVipTier);
+                    const claimedVipBool = req.headers['x-claimed-vip'] === 'true' || (req.query && req.query.claimedVip === 'true');
+
+                    // Anti-Tamper Check: If client falsely claims VIP status without legitimate database VIP
+                    if ((claimedVipTier && claimedVipTier !== 'none' && !vipInfo.isPremium) || (claimedVipBool && !vipInfo.isPremium)) {
+                        await Security.banIp(clientIp, `Percobaan manipulasi status VIP lewat PC/DevTools: mengklaim "${claimedVipTier || 'VIP'}" tanpa izin database.`, {
+                            userId: user.id,
+                            username: user.username
+                        });
+                        return res.status(403).json({
+                            status: false,
+                            ipBanned: true,
+                            banned: true,
+                            message: 'Alamat IP Anda telah diblokir secara permanen karena terdeteksi manipulasi status VIP via DevTools.'
+                        });
+                    }
+
+                    const vipSig = Security.generateVipSignature(user.id, vipInfo.vipTier, vipInfo.vipExpiresAt);
+
                     return res.json({
                         status: true,
                         authenticated: true,
@@ -1025,6 +1153,10 @@ module.exports = async (req, res) => {
                         ip: clientIp,
                         user: {
                             id: user.id,
+                            originalId: user.originalId || user.id,
+                            customId: user.customId || null,
+                            customIdExpiresAt: user.customIdExpiresAt || null,
+                            isCustomIdTrial: Boolean(user.isCustomIdTrial),
                             username: user.username,
                             email: user.rawEmail || user.email,
                             rawEmail: user.rawEmail || user.email,
@@ -1036,9 +1168,10 @@ module.exports = async (req, res) => {
                             equippedBadgeTitle: user.equippedBadgeTitle || '',
                             equippedBadgeIcon: user.equippedBadgeIcon || '',
                             equippedBadgeColor: user.equippedBadgeColor || '',
-                            isPremium: resolveUserVipStatus(user).isPremium,
-                            vipTier: resolveUserVipStatus(user).vipTier,
-                            vipExpiresAt: resolveUserVipStatus(user).vipExpiresAt,
+                            isPremium: vipInfo.isPremium,
+                            vipTier: vipInfo.vipTier,
+                            vipExpiresAt: vipInfo.vipExpiresAt,
+                            vipSignature: vipSig,
                             role: user.role || (((user.rawEmail || user.email || '').toLowerCase().trim() === 'jrnabil570@gmail.com') ? 'admin' : 'member'),
                             createdAt: user.createdAt,
                             ip: clientIp,
@@ -1119,7 +1252,7 @@ module.exports = async (req, res) => {
             const nowIso = new Date().toISOString();
             const maskedClientIp = maskIp(clientIp);
             const newUser = {
-                id: 'u_' + Date.now() + '_' + crypto.randomBytes(4).toString('hex'),
+                id: generate10DigitUserId(db.users),
                 username: username,
                 email: email,
                 rawEmail: email,
@@ -1247,6 +1380,9 @@ module.exports = async (req, res) => {
 
             await writeDbAsync(db);
 
+            const vipInfo = resolveUserVipStatus(user);
+            const vipSig = Security.generateVipSignature(user.id, vipInfo.vipTier, vipInfo.vipExpiresAt);
+
             return res.json({
                 status: true,
                 message: 'Login berhasil!',
@@ -1261,9 +1397,10 @@ module.exports = async (req, res) => {
                     border: user.border || '',
                     borderUrl: user.borderUrl || '',
                     borderName: user.borderName || '',
-                    isPremium: resolveUserVipStatus(user).isPremium,
-                    vipTier: resolveUserVipStatus(user).vipTier,
-                    vipExpiresAt: resolveUserVipStatus(user).vipExpiresAt,
+                    isPremium: vipInfo.isPremium,
+                    vipTier: vipInfo.vipTier,
+                    vipExpiresAt: vipInfo.vipExpiresAt,
+                    vipSignature: vipSig,
                     role: user.role || (((user.rawEmail || user.email || '').toLowerCase().trim() === 'jrnabil570@gmail.com') ? 'admin' : 'member'),
                     createdAt: user.createdAt
                 }
@@ -1321,7 +1458,7 @@ module.exports = async (req, res) => {
                 // If email is jrnabil570@gmail.com, ensure proper role/username
                 const isMasterAdmin = (email === 'jrnabil570@gmail.com');
                 const finalUsername = isMasterAdmin ? 'MusifyStar Official' : uniqueUsername;
-                const userId = isMasterAdmin ? 'u_1790196636099_622dc736' : ('u_' + Date.now() + '_' + crypto.randomBytes(4).toString('hex'));
+                const userId = isMasterAdmin ? '8589478687' : generate10DigitUserId(db.users);
 
                 user = {
                     id: userId,
@@ -1382,6 +1519,9 @@ module.exports = async (req, res) => {
 
             await writeDbAsync(db);
 
+            const vipInfo = resolveUserVipStatus(user);
+            const vipSig = Security.generateVipSignature(user.id, vipInfo.vipTier, vipInfo.vipExpiresAt);
+
             return res.json({
                 status: true,
                 message: 'Login Google berhasil!',
@@ -1396,9 +1536,10 @@ module.exports = async (req, res) => {
                     border: user.border || '',
                     borderUrl: user.borderUrl || '',
                     borderName: user.borderName || '',
-                    isPremium: resolveUserVipStatus(user).isPremium,
-                    vipTier: resolveUserVipStatus(user).vipTier,
-                    vipExpiresAt: resolveUserVipStatus(user).vipExpiresAt,
+                    isPremium: vipInfo.isPremium,
+                    vipTier: vipInfo.vipTier,
+                    vipExpiresAt: vipInfo.vipExpiresAt,
+                    vipSignature: vipSig,
                     role: user.role || (((user.rawEmail || user.email || '').toLowerCase().trim() === 'jrnabil570@gmail.com') ? 'admin' : 'member'),
                     createdAt: user.createdAt
                 }
@@ -1622,6 +1763,281 @@ module.exports = async (req, res) => {
                 await writeDbAsync(db);
             }
             return res.json({ status: true, message: 'Logout berhasil' });
+        }
+
+        // GET/POST /api/user-auth?action=get_custom_ids
+        if (action === 'get_custom_ids') {
+            let customIds = await storage.readDataAsync('custom_ids.json', []);
+            if (!Array.isArray(customIds)) customIds = [];
+
+            const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || req.query.token;
+            let targetUserId = getUserIdFromToken(token, db);
+            const verified = verifyUserToken(token);
+            let user = targetUserId ? db.users.find(u => u.id === targetUserId || u.originalId === targetUserId) : null;
+
+            if (!user && verified) {
+                user = db.users.find(u => 
+                    (u.id && u.id === verified.uid) || 
+                    (u.originalId && u.originalId === verified.uid) || 
+                    (verified.u && (u.username || '').toLowerCase() === verified.u.toLowerCase())
+                );
+            }
+
+            if (!user) {
+                const fallbackU = String(req.query.username || req.headers['x-user-name'] || '').replace(/^@/, '').trim().toLowerCase();
+                const fallbackId = String(req.query.userId || req.headers['x-user-id'] || '').trim();
+                if (fallbackU || fallbackId) {
+                    user = db.users.find(u => 
+                        (fallbackId && (u.id === fallbackId || u.originalId === fallbackId)) ||
+                        (fallbackU && (u.username || '').toLowerCase() === fallbackU)
+                    );
+                }
+            }
+
+            // Auto-revert if customId trial has expired
+            if (user && user.customId && user.customIdExpiresAt && Date.now() > user.customIdExpiresAt) {
+                user.id = user.originalId || user.id;
+                user.customId = null;
+                user.customIdExpiresAt = null;
+                user.isCustomIdTrial = false;
+                await writeDbAsync(db);
+            }
+
+            return res.json({
+                status: true,
+                customIds: customIds || [],
+                currentUserCustomId: user ? (user.customId || null) : null,
+                currentUserOriginalId: user ? (user.originalId || user.id) : null,
+                currentUserCustomIdExpiresAt: user ? (user.customIdExpiresAt || null) : null,
+                currentUserIsTrial: user ? Boolean(user.isCustomIdTrial) : false,
+                user: user ? {
+                    id: user.id,
+                    originalId: user.originalId || user.id,
+                    customId: user.customId || null,
+                    customIdExpiresAt: user.customIdExpiresAt || null,
+                    isCustomIdTrial: Boolean(user.isCustomIdTrial)
+                } : null
+            });
+        }
+
+        // POST /api/user-auth?action=add_custom_id (Admin only)
+        if (action === 'add_custom_id') {
+            const adminToken = req.headers['x-admin-token'] || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+            const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || req.body?.token;
+            const targetUserId = getUserIdFromToken(token, db);
+            const callerUser = targetUserId ? db.users.find(u => u.id === targetUserId || u.originalId === targetUserId) : null;
+            const isAdmin = adminAuth.verifySessionToken(adminToken) || (callerUser && ((callerUser.rawEmail || callerUser.email || '').toLowerCase() === 'jrnabil570@gmail.com' || callerUser.role === 'admin'));
+
+            if (!isAdmin) {
+                return res.status(403).json({ status: false, message: 'Hanya administrator yang dapat mempublikasikan Custom ID.' });
+            }
+
+            const customId = String(body.customId || '').trim();
+            const targetUsername = String(body.targetUsername || '').replace(/^@/, '').trim();
+            const duration = String(body.duration || '7days').trim().toLowerCase();
+
+            if (!customId) {
+                return res.status(400).json({ status: false, message: 'Custom ID wajib diisi' });
+            }
+
+            const durationMs = parseDurationToMs(duration);
+            const isPermanent = (duration === 'permanent' || duration === 'permanen' || duration === 'lifetime' || durationMs === null);
+            const expiresAt = isPermanent ? null : (Date.now() + durationMs);
+
+            let customIds = await storage.readDataAsync('custom_ids.json', []);
+            if (!Array.isArray(customIds)) customIds = [];
+
+            const newEntry = {
+                id: 'cid_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+                customId: customId,
+                targetUsername: targetUsername,
+                duration: duration,
+                durationMs: durationMs,
+                isPermanent: isPermanent,
+                createdAt: new Date().toISOString()
+            };
+
+            const existingIdx = customIds.findIndex(c => String(c.customId) === customId);
+            if (existingIdx !== -1) {
+                customIds[existingIdx] = newEntry;
+            } else {
+                customIds.push(newEntry);
+            }
+            await storage.writeDataAsync('custom_ids.json', customIds);
+
+            // Assign directly to target user if targetUsername provided
+            let assignedUser = null;
+            if (targetUsername) {
+                const cleanUname = targetUsername.toLowerCase();
+                const targetUser = db.users.find(u => (u.username || '').toLowerCase() === cleanUname);
+                if (targetUser) {
+                    targetUser.originalId = targetUser.originalId || targetUser.id;
+                    targetUser.customId = customId;
+                    targetUser.customIdExpiresAt = expiresAt;
+                    targetUser.isCustomIdTrial = !isPermanent;
+                    targetUser.id = customId;
+                    assignedUser = targetUser.username;
+                    await writeDbAsync(db);
+                }
+            }
+
+            return res.json({
+                status: true,
+                message: isPermanent 
+                    ? `Custom ID VIP "${customId}" berhasil dipublikasikan secara Permanen!` 
+                    : `Custom ID VIP "${customId}" berhasil dipublikasikan sebagai Trial!`,
+                customIdRecord: newEntry,
+                assignedTo: assignedUser
+            });
+        }
+
+        // POST /api/user-auth?action=delete_custom_id (Admin only)
+        if (action === 'delete_custom_id') {
+            const adminToken = req.headers['x-admin-token'] || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+            const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || req.body?.token;
+            const targetUserId = getUserIdFromToken(token, db);
+            const callerUser = targetUserId ? db.users.find(u => u.id === targetUserId || u.originalId === targetUserId) : null;
+            const isAdmin = adminAuth.verifySessionToken(adminToken) || (callerUser && ((callerUser.rawEmail || callerUser.email || '').toLowerCase() === 'jrnabil570@gmail.com' || callerUser.role === 'admin'));
+
+            if (!isAdmin) {
+                return res.status(403).json({ status: false, message: 'Akses ditolak.' });
+            }
+
+            const targetIdToDelete = String(body.customId || body.id || '').trim();
+            if (!targetIdToDelete) {
+                return res.status(400).json({ status: false, message: 'ID tidak valid' });
+            }
+
+            let customIds = await storage.readDataAsync('custom_ids.json', []);
+            if (!Array.isArray(customIds)) customIds = [];
+
+            const recordToDelete = customIds.find(c => c.id === targetIdToDelete || String(c.customId) === targetIdToDelete);
+            const targetCustomIdStr = recordToDelete ? String(recordToDelete.customId) : targetIdToDelete;
+
+            customIds = customIds.filter(c => c.id !== targetIdToDelete && String(c.customId) !== targetIdToDelete);
+            await storage.writeDataAsync('custom_ids.json', customIds);
+
+            // Revert any users currently using this customId
+            let revertedUsersCount = 0;
+            db.users.forEach(u => {
+                if (String(u.customId) === targetCustomIdStr) {
+                    u.customId = null;
+                    u.customIdExpiresAt = null;
+                    u.isCustomIdTrial = false;
+                    if (u.originalId) {
+                        u.id = u.originalId;
+                    }
+                    revertedUsersCount++;
+                }
+            });
+            if (revertedUsersCount > 0) {
+                await writeDbAsync(db);
+            }
+
+            return res.json({
+                status: true,
+                message: `Custom ID VIP "${targetCustomIdStr}" berhasil dihapus (${revertedUsersCount} akun dikembalikan ke ID asal).`
+            });
+        }
+
+        // POST /api/user-auth?action=equip_custom_id
+        if (action === 'equip_custom_id') {
+            const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || req.body?.token;
+            let targetUserId = getUserIdFromToken(token, db);
+            const verified = verifyUserToken(token);
+            let user = targetUserId ? db.users.find(u => u.id === targetUserId || u.originalId === targetUserId) : null;
+            if (!user && verified) {
+                user = db.users.find(u => (u.id && u.id === verified.uid) || (u.originalId && u.originalId === verified.uid) || (verified.u && (u.username || '').toLowerCase() === verified.u.toLowerCase()));
+            }
+            if (!user) {
+                return res.status(401).json({ status: false, message: 'Silakan login terlebih dahulu' });
+            }
+
+            const vipInfo = resolveUserVipStatus(user);
+            const isMasterAdmin = (user.rawEmail || user.email || '').toLowerCase().trim() === 'jrnabil570@gmail.com' || (user.username === 'nabil');
+            if (!vipInfo.isPremium && !isMasterAdmin) {
+                return res.status(403).json({ status: false, message: 'Fitur Custom ID khusus untuk Member VIP MusifyStar.' });
+            }
+
+            // Rule: jika user sedang menggunakan Trial ID yang belum habis, tidak boleh ganti sampai masa trial habis
+            if (user.customId && user.customIdExpiresAt && Date.now() < user.customIdExpiresAt) {
+                return res.status(400).json({
+                    status: false,
+                    message: `Anda sedang menggunakan Trial ID "${user.customId}". Tunggu masa trial habis sebelum dapat mengganti ID lain.`
+                });
+            }
+
+            const requestedCustomId = String(body.customId || '').trim();
+            if (!requestedCustomId) {
+                return res.status(400).json({ status: false, message: 'Custom ID wajib dipilih' });
+            }
+
+            let customIds = await storage.readDataAsync('custom_ids.json', []);
+            if (!Array.isArray(customIds)) customIds = [];
+
+            const record = customIds.find(c => String(c.customId) === requestedCustomId &&
+                (!c.targetUsername || c.targetUsername.toLowerCase() === (user.username || '').toLowerCase()));
+
+            if (!record && !isMasterAdmin) {
+                return res.status(403).json({ status: false, message: 'Custom ID ini tidak tersedia untuk akun Anda.' });
+            }
+
+            const durationMs = record ? record.durationMs : null;
+            const isPermanent = record ? record.isPermanent : true;
+            const expiresAt = isPermanent ? null : (Date.now() + durationMs);
+
+            user.originalId = user.originalId || user.id;
+            user.customId = requestedCustomId;
+            user.customIdExpiresAt = expiresAt;
+            user.isCustomIdTrial = !isPermanent;
+            user.id = requestedCustomId;
+
+            await writeDbAsync(db);
+
+            return res.json({
+                status: true,
+                message: `Custom ID VIP "${requestedCustomId}" berhasil dipasang!`,
+                user: {
+                    id: user.id,
+                    originalId: user.originalId,
+                    customId: user.customId,
+                    customIdExpiresAt: user.customIdExpiresAt,
+                    isCustomIdTrial: user.isCustomIdTrial
+                }
+            });
+        }
+
+        // POST /api/user-auth?action=revert_custom_id
+        if (action === 'revert_custom_id') {
+            const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || req.body?.token;
+            const targetUserId = getUserIdFromToken(token, db);
+            if (!targetUserId) {
+                return res.status(401).json({ status: false, message: 'Silakan login terlebih dahulu' });
+            }
+
+            const user = db.users.find(u => u.id === targetUserId || u.originalId === targetUserId);
+            if (!user) {
+                return res.status(404).json({ status: false, message: 'Pengguna tidak ditemukan' });
+            }
+
+            user.customId = null;
+            user.customIdExpiresAt = null;
+            user.isCustomIdTrial = false;
+            if (user.originalId) {
+                user.id = user.originalId;
+            }
+
+            await writeDbAsync(db);
+
+            return res.json({
+                status: true,
+                message: 'Berhasil kembali ke User ID asal!',
+                user: {
+                    id: user.id,
+                    originalId: user.originalId,
+                    customId: null
+                }
+            });
         }
 
         return res.status(400).json({ status: false, message: 'Action tidak dikenal' });

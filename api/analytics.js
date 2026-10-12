@@ -257,7 +257,7 @@ function recordHeartbeat(sessionInfo, userAgent) {
             if (!data.userStats) data.userStats = {};
             const uKey = (userInfo.username || userInfo.id || '').toLowerCase().trim();
             if (uKey && uKey !== 'tamu (belum login)') {
-                const isMasterAdmin = (uKey === 'nabil' || uKey === 'musifystar' || (userInfo.email && userInfo.email.toLowerCase().trim() === 'jrnabil570@gmail.com') || (userInfo.id === 'u_1790196636099_622dc736') || userInfo.role === 'admin');
+                const isMasterAdmin = (uKey === 'nabil' || uKey === 'musifystar' || (userInfo.email && userInfo.email.toLowerCase().trim() === 'jrnabil570@gmail.com') || (userInfo.id === '8589478687' || userInfo.id === 'u_1790196636099_622dc736') || userInfo.role === 'admin');
                 if (!data.userStats[uKey]) {
                     // Check registered user baseline so active sessions don't reset scores
                     let initSec = 7200;
@@ -530,7 +530,7 @@ async function buildLeaderboardList(data, tf = 'all', includeHidden = false) {
         const uKey = u.username.toLowerCase();
         const uEmail = (u.email || u.rawEmail || '').toLowerCase().trim();
         const isVipExpired = u.vipExpiresAt && Date.now() > u.vipExpiresAt;
-        const isMasterAdmin = (uKey === 'nabil' || uKey === 'musifystar' || uEmail === 'jrnabil570@gmail.com' || u.role === 'admin' || u.id === 'u_1790196636099_622dc736');
+        const isMasterAdmin = (uKey === 'nabil' || uKey === 'musifystar' || uEmail === 'jrnabil570@gmail.com' || u.role === 'admin' || u.id === '8589478687' || u.id === 'u_1790196636099_622dc736');
         const isTierActive = Boolean(u.vipTier && u.vipTier !== 'none');
         const isVip = Boolean((isMasterAdmin || ((u.isPremium || u.is_premium || isTierActive) && u.vipTier !== 'none')) && !isVipExpired);
 

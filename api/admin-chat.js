@@ -101,6 +101,7 @@ async function resolveAdminProfile() {
             (u.email && u.email.toLowerCase() === 'jrnabil570@gmail.com') || 
             (u.rawEmail && u.rawEmail.toLowerCase() === 'jrnabil570@gmail.com') || 
             u.username === 'nabil' || 
+            u.id === '8589478687' ||
             u.id === 'u_1790196636099_622dc736'
         );
         if (adminUser) {
@@ -147,7 +148,7 @@ module.exports = async function handler(req, res) {
             const uid = String(userPayload.uid || '');
             const uname = String(userPayload.username || '').toLowerCase();
             const role = String(userPayload.role || '');
-            if (uid === 'u_1790196636099_622dc736' || uname === 'nabil' || role === 'admin') {
+            if (uid === '8589478687' || uid === 'u_1790196636099_622dc736' || uname === 'nabil' || role === 'admin') {
                 isAdmin = true;
             } else {
                 try {
@@ -155,7 +156,7 @@ module.exports = async function handler(req, res) {
                     const u = registeredUsers.find(ru => String(ru.id) === uid || String(ru.username).toLowerCase() === uname);
                     if (u) {
                         const email = (u.rawEmail || u.email || '').toLowerCase().trim();
-                        if (email === 'jrnabil570@gmail.com' || u.role === 'admin' || u.username === 'nabil' || String(u.id) === 'u_1790196636099_622dc736') {
+                        if (email === 'jrnabil570@gmail.com' || u.role === 'admin' || u.username === 'nabil' || String(u.id) === '8589478687' || String(u.id) === 'u_1790196636099_622dc736') {
                             isAdmin = true;
                         }
                     }
@@ -164,7 +165,7 @@ module.exports = async function handler(req, res) {
         }
         if (!isAdmin && headerUserId) {
             const hid = String(headerUserId);
-            if (hid === 'u_1790196636099_622dc736' || hid.toLowerCase() === 'nabil') {
+            if (hid === '8589478687' || hid === 'u_1790196636099_622dc736' || hid.toLowerCase() === 'nabil') {
                 isAdmin = true;
             } else {
                 try {
@@ -172,7 +173,7 @@ module.exports = async function handler(req, res) {
                     const u = registeredUsers.find(ru => String(ru.id) === hid || String(ru.username).toLowerCase() === hid.toLowerCase());
                     if (u) {
                         const email = (u.rawEmail || u.email || '').toLowerCase().trim();
-                        if (email === 'jrnabil570@gmail.com' || u.role === 'admin' || u.username === 'nabil' || String(u.id) === 'u_1790196636099_622dc736') {
+                        if (email === 'jrnabil570@gmail.com' || u.role === 'admin' || u.username === 'nabil' || String(u.id) === '8589478687' || String(u.id) === 'u_1790196636099_622dc736') {
                             isAdmin = true;
                         }
                     }

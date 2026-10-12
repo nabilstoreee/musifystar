@@ -182,6 +182,7 @@ module.exports = async function (req, res) {
             // PRIVACY & SECURITY: Strip / mask emails for regular users to prevent scraping via DevTools
             const safeMessages = rows.map(r => {
                 const isMsgMasterAdmin = ((r.email || '').toLowerCase().trim() === 'jrnabil570@gmail.com') ||
+                                         (String(r.user_id || '') === '8589478687') ||
                                          (String(r.user_id || '') === 'u_1790196636099_622dc736') ||
                                          (String(r.user_id || '') === 'admin_1') ||
                                          (r.username === 'nabil' && (r.email || '').includes('jrnabil570'));
@@ -309,7 +310,7 @@ module.exports = async function (req, res) {
                     }
 
                     if (foundUser) {
-                        const isFoundAdmin = (foundUser.email || foundUser.rawEmail || '').toLowerCase().trim() === 'jrnabil570@gmail.com' || String(foundUser.id) === 'u_1790196636099_622dc736';
+                        const isFoundAdmin = (foundUser.email || foundUser.rawEmail || '').toLowerCase().trim() === 'jrnabil570@gmail.com' || String(foundUser.id) === '8589478687' || String(foundUser.id) === 'u_1790196636099_622dc736';
                         currentUser = {
                             id: String(foundUser.id || effectiveUid),
                             username: foundUser.username || (isFoundAdmin ? 'MusifyStar Official' : effectiveUsername || 'Musisi'),
@@ -319,7 +320,7 @@ module.exports = async function (req, res) {
                             badge: isFoundAdmin ? 'Admin' : 'Member'
                         };
                     } else if (effectiveUid || effectiveUsername || headerEmail) {
-                        const isGuestAdmin = (headerEmail === 'jrnabil570@gmail.com' || effectiveUid === 'u_1790196636099_622dc736');
+                        const isGuestAdmin = (headerEmail === 'jrnabil570@gmail.com' || effectiveUid === '8589478687' || effectiveUid === 'u_1790196636099_622dc736');
                         currentUser = {
                             id: String(effectiveUid || 'usr_' + Date.now()),
                             username: effectiveUsername || (isGuestAdmin ? 'MusifyStar Official' : 'Musisi'),
@@ -335,7 +336,7 @@ module.exports = async function (req, res) {
             // 2. Fallback: If not authenticated as standard user, check if Master Admin Token
             if (!currentUser && (adminAuth.isValidToken(rawToken) || adminAuth.isValidToken(adminToken) || (headerEmail === 'jrnabil570@gmail.com' && (rawToken || adminToken)))) {
                 currentUser = {
-                    id: 'u_1790196636099_622dc736',
+                    id: '8589478687',
                     username: 'MusifyStar Official',
                     email: 'jrnabil570@gmail.com',
                     rawEmail: 'jrnabil570@gmail.com',
@@ -384,7 +385,7 @@ module.exports = async function (req, res) {
             const userId = String(currentUser.id || currentUser.userId || '');
 
             // Master Admin Verification
-            const isMasterAdmin = (email === 'jrnabil570@gmail.com' || userId === 'u_1790196636099_622dc736' || userId === 'admin_1');
+            const isMasterAdmin = (email === 'jrnabil570@gmail.com' || userId === '8589478687' || userId === 'u_1790196636099_622dc736' || userId === 'admin_1');
             const badge = isMasterAdmin ? 'Admin' : 'Member';
             const displayUsername = username || (isMasterAdmin ? 'MusifyStar Official' : 'Musisi');
             const avatarColor = getAvatarColor(displayUsername);
@@ -530,7 +531,7 @@ module.exports = async function (req, res) {
             }
 
             // MASTER ADMIN (jrnabil570@gmail.com) can delete ANY message!
-            if (callerEmail === 'jrnabil570@gmail.com' || callerUid === 'u_1790196636099_622dc736') {
+            if (callerEmail === 'jrnabil570@gmail.com' || callerUid === '8589478687' || callerUid === 'u_1790196636099_622dc736') {
                 isMasterAdmin = true;
             }
 
