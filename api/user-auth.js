@@ -231,10 +231,19 @@ function getUserBanStatus(user, banRegistry) {
         return { isBanned: false, isWarning: false, banType: 'none', banReason: '', banExpiresAt: null, banDurationText: '' };
     }
 
+    const emailKey = (user.rawEmail || user.email || '').toLowerCase().trim();
+    const usernameKey = (user.username || '').toLowerCase().trim();
+    if (emailKey === 'jrnabil570@gmail.com' || usernameKey === 'abil' || usernameKey === 'nabil' || user.role === 'admin') {
+        user.banType = 'none';
+        user.banReason = '';
+        user.banExpiresAt = null;
+        user.banDurationDays = null;
+        return { isBanned: false, isWarning: false, banType: 'none', banReason: '', banExpiresAt: null, banDurationText: '' };
+    }
+
     // Cross-check anti-tamper ban registry
     try {
         const regMap = banRegistry || readBanRegistrySync();
-        const emailKey = (user.rawEmail || user.email || '').toLowerCase();
         const reg = (user.id && regMap[user.id]) ||
                     (user.username && regMap[user.username.toLowerCase()]) ||
                     (emailKey && regMap[emailKey]);
@@ -1125,21 +1134,32 @@ module.exports = async (req, res) => {
 
                 if (targetUserId) {
                     const vipInfo = resolveUserVipStatus(user);
+                    const isMasterAdmin = (user.role === 'admin') || 
+                                          ((user.rawEmail || user.email || '').toLowerCase().trim() === 'jrnabil570@gmail.com') ||
+                                          ((user.username || '').toLowerCase().trim() === 'abil') ||
+                                          ((user.username || '').toLowerCase().trim() === 'nabil');
+
+                    if (isMasterAdmin) {
+                        Security.addImmuneIp(clientIp);
+                    }
+
                     const claimedVipTier = req.headers['x-claimed-vip-tier'] || (req.query && req.query.claimedVipTier) || (body && body.claimedVipTier);
                     const claimedVipBool = req.headers['x-claimed-vip'] === 'true' || (req.query && req.query.claimedVip === 'true');
 
-                    // Anti-Tamper Check: If client falsely claims VIP status without legitimate database VIP
-                    if ((claimedVipTier && claimedVipTier !== 'none' && !vipInfo.isPremium) || (claimedVipBool && !vipInfo.isPremium)) {
-                        await Security.banIp(clientIp, `Percobaan manipulasi status VIP lewat PC/DevTools: mengklaim "${claimedVipTier || 'VIP'}" tanpa izin database.`, {
-                            userId: user.id,
-                            username: user.username
-                        });
-                        return res.status(403).json({
-                            status: false,
-                            ipBanned: true,
-                            banned: true,
-                            message: 'Alamat IP Anda telah diblokir secara permanen karena terdeteksi manipulasi status VIP via DevTools.'
-                        });
+                    // Anti-Tamper Check: Only ban if clearly forged (e.g. non-vip claimed but forbidden tier) and NOT admin and NOT immune
+                    if (!isMasterAdmin && !Security.isImmuneIp(clientIp)) {
+                        if (claimedVipTier === 'permanent' && !vipInfo.isPremium && user.createdAt && (Date.now() - new Date(user.createdAt).getTime() > 60000)) {
+                            await Security.banIp(clientIp, `Percobaan manipulasi status VIP lewat PC/DevTools: mengklaim permanent tanpa izin database.`, {
+                                userId: user.id,
+                                username: user.username
+                            });
+                            return res.status(403).json({
+                                status: false,
+                                ipBanned: true,
+                                banned: true,
+                                message: 'Alamat IP Anda telah diblokir secara permanen karena terdeteksi manipulasi status VIP via DevTools.'
+                            });
+                        }
                     }
 
                     const vipSig = Security.generateVipSignature(user.id, vipInfo.vipTier, vipInfo.vipExpiresAt);
@@ -1380,6 +1400,14 @@ module.exports = async (req, res) => {
 
             await writeDbAsync(db);
 
+            const isMasterAdmin = (user.role === 'admin') || 
+                                  ((user.rawEmail || user.email || '').toLowerCase().trim() === 'jrnabil570@gmail.com') ||
+                                  ((user.username || '').toLowerCase().trim() === 'abil') ||
+                                  ((user.username || '').toLowerCase().trim() === 'nabil');
+            if (isMasterAdmin) {
+                Security.addImmuneIp(clientIp);
+            }
+
             const vipInfo = resolveUserVipStatus(user);
             const vipSig = Security.generateVipSignature(user.id, vipInfo.vipTier, vipInfo.vipExpiresAt);
 
@@ -1518,6 +1546,14 @@ module.exports = async (req, res) => {
             };
 
             await writeDbAsync(db);
+
+            const isGoogleMasterAdmin = (user.role === 'admin') || 
+                                        ((user.rawEmail || user.email || '').toLowerCase().trim() === 'jrnabil570@gmail.com') ||
+                                        ((user.username || '').toLowerCase().trim() === 'abil') ||
+                                        ((user.username || '').toLowerCase().trim() === 'nabil');
+            if (isGoogleMasterAdmin) {
+                Security.addImmuneIp(clientIp);
+            }
 
             const vipInfo = resolveUserVipStatus(user);
             const vipSig = Security.generateVipSignature(user.id, vipInfo.vipTier, vipInfo.vipExpiresAt);
@@ -1794,18 +1830,49 @@ module.exports = async (req, res) => {
                 }
             }
 
-            // Auto-revert if customId trial has expired
-            if (user && user.customId && user.customIdExpiresAt && Date.now() > user.customIdExpiresAt) {
-                user.id = user.originalId || user.id;
-                user.customId = null;
-                user.customIdExpiresAt = null;
-                user.isCustomIdTrial = false;
+            // Auto-revert any users whose customId trial has expired
+            let dbChanged = false;
+            db.users.forEach(u => {
+                if (u.customId && u.customIdExpiresAt && Date.now() > u.customIdExpiresAt) {
+                    u.id = u.originalId || u.id;
+                    u.customId = null;
+                    u.customIdExpiresAt = null;
+                    u.isCustomIdTrial = false;
+                    dbChanged = true;
+                }
+            });
+            if (dbChanged) {
                 await writeDbAsync(db);
             }
 
+            // Mark which custom IDs are currently in use by other users or the current user
+            const enhancedCustomIds = customIds.map(item => {
+                const itemCidStr = String(item.customId || '').trim();
+                const activeUser = db.users.find(u => {
+                    const uCid = String(u.customId || '').trim();
+                    if (uCid && uCid === itemCidStr) {
+                        if (!u.customIdExpiresAt || Date.now() < u.customIdExpiresAt) {
+                            return true;
+                        }
+                    }
+                    return false;
+                });
+
+                const isUsedByCurrent = Boolean(user && activeUser && (activeUser.id === user.id || activeUser.originalId === user.originalId));
+                const isUsedByOther = Boolean(activeUser && (!user || (activeUser.id !== user.id && activeUser.originalId !== user.originalId)));
+
+                return {
+                    ...item,
+                    isEquippedByMe: isUsedByCurrent,
+                    inUseByAnotherUser: isUsedByOther,
+                    activeUserUsername: isUsedByOther ? (activeUser.username || 'pengguna lain') : (isUsedByCurrent ? (user.username || 'Anda') : null),
+                    activeUserMasked: isUsedByOther ? (activeUser.username ? '@' + activeUser.username : 'Pengguna Lain') : null
+                };
+            });
+
             return res.json({
                 status: true,
-                customIds: customIds || [],
+                customIds: enhancedCustomIds,
                 currentUserCustomId: user ? (user.customId || null) : null,
                 currentUserOriginalId: user ? (user.originalId || user.id) : null,
                 currentUserCustomIdExpiresAt: user ? (user.customIdExpiresAt || null) : null,
@@ -1970,6 +2037,26 @@ module.exports = async (req, res) => {
             const requestedCustomId = String(body.customId || '').trim();
             if (!requestedCustomId) {
                 return res.status(400).json({ status: false, message: 'Custom ID wajib dipilih' });
+            }
+
+            // CRITICAL RULE: Cek jika Custom ID ini sedang aktif digunakan oleh pengguna lain!
+            const otherUserUsingThisId = db.users.find(u => {
+                if (u.id === user.id || u.originalId === user.originalId) return false;
+                const uCid = String(u.customId || '').trim();
+                if (uCid && uCid === requestedCustomId) {
+                    if (!u.customIdExpiresAt || Date.now() < u.customIdExpiresAt) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+
+            if (otherUserUsingThisId) {
+                const maskName = otherUserUsingThisId.username ? `@${otherUserUsingThisId.username}` : 'pengguna lain';
+                return res.status(400).json({
+                    status: false,
+                    message: `Custom ID "${requestedCustomId}" sedang aktif digunakan oleh pengguna lain (${maskName}). Pengguna lain tidak bisa memakai ID yang sedang aktif dipakai.`
+                });
             }
 
             let customIds = await storage.readDataAsync('custom_ids.json', []);

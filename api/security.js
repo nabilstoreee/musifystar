@@ -6,6 +6,44 @@ const storage = require('./storage.js');
 const VIP_INTEGRITY_SECRET = process.env.VIP_SECRET || 'musifystar_vip_integrity_hmac_secret_2026_super_key';
 const BANNED_IPS_FILE = '.banned_ips.json';
 
+// SHA-256 Hashes of Exempt / Immune Administrator IP Addresses and Subnets
+// Ensures administrator IPs are NEVER revealed in plain text anywhere in files or code
+const IMMUNE_IP_HASHES = new Set([
+    '9822b6fd8f7c14e83f3a8a893cb232628c5fb4aeacfec07ca5714407f9e530d8',
+    '759fad1ccf96916d1677ea6b0e8c9930c414d4f7a6583a01262b346a9bafec0f',
+    '7fe3d135013179b033fd221e811796ff3907c3ac50a7ed34f7b23ec4d210f930',
+    '2e01bb988a00d929e551742f0239b7c729cb8bc653dc938528828faaa245a2bb',
+    '05d5e60892adb0f6edf0522b0fc83f206200e5b4a8b0aab3651c4b8743f52e5b'
+]);
+
+const DYNAMIC_IMMUNE_FILE = '.admin_immune_hashes.json';
+const DYNAMIC_IMMUNE_HASHES = new Set();
+
+// Load previously remembered admin immune hashes from storage / disk
+try {
+    const diskPath = path.join(__dirname, '..', DYNAMIC_IMMUNE_FILE);
+    if (fs.existsSync(diskPath)) {
+        const raw = fs.readFileSync(diskPath, 'utf8');
+        const list = JSON.parse(raw);
+        if (Array.isArray(list)) {
+            list.forEach(h => {
+                if (typeof h === 'string' && h.length === 64) DYNAMIC_IMMUNE_HASHES.add(h);
+            });
+        }
+    }
+} catch (e) {}
+
+// Also sync with PostgreSQL in background
+try {
+    storage.readDataAsync(DYNAMIC_IMMUNE_FILE, []).then(list => {
+        if (Array.isArray(list)) {
+            list.forEach(h => {
+                if (typeof h === 'string' && h.length === 64) DYNAMIC_IMMUNE_HASHES.add(h);
+            });
+        }
+    }).catch(() => {});
+} catch (e) {}
+
 // Normalize IP address (strips ::ffff:, maps local loopback, cleans whitespace)
 function normalizeIp(ip) {
     if (!ip) return '127.0.0.1';
@@ -17,53 +55,155 @@ function normalizeIp(ip) {
     return clean;
 }
 
-// Read banned IPs from storage with disk fallback
-function readBannedIpsSync() {
-    try {
-        const data = storage.readData(BANNED_IPS_FILE, {});
-        if (data && typeof data === 'object') return data;
-    } catch (e) {}
+// Check if an IP has Anti-Ban Immunity
+function isImmuneIp(ip) {
+    if (!ip) return false;
+    const clean = normalizeIp(ip);
+    if (!clean) return false;
+    if (clean === '127.0.0.1' || clean === '::1' || clean === 'localhost') return true;
 
     try {
-        const diskPath = path.join(__dirname, '..', BANNED_IPS_FILE);
-        if (fs.existsSync(diskPath)) {
-            const raw = fs.readFileSync(diskPath, 'utf8');
-            return JSON.parse(raw);
+        const fullHash = crypto.createHash('sha256').update(clean).digest('hex');
+        if (IMMUNE_IP_HASHES.has(fullHash) || DYNAMIC_IMMUNE_HASHES.has(fullHash)) return true;
+
+        if (clean.includes(':')) {
+            const parts = clean.split(':');
+            if (parts.length >= 4) {
+                const prefix = parts.slice(0, 4).join(':');
+                const prefixHash = crypto.createHash('sha256').update(prefix).digest('hex');
+                if (IMMUNE_IP_HASHES.has(prefixHash) || DYNAMIC_IMMUNE_HASHES.has(prefixHash)) return true;
+            }
         }
+    } catch(e) {}
+    return false;
+}
+
+// Dynamically whitelist an IP (e.g. when authenticated as Admin) and persist it
+function addImmuneIp(ip) {
+    if (!ip) return;
+    const clean = normalizeIp(ip);
+    if (!clean) return;
+    let modified = false;
+    try {
+        const fullHash = crypto.createHash('sha256').update(clean).digest('hex');
+        if (!DYNAMIC_IMMUNE_HASHES.has(fullHash)) {
+            DYNAMIC_IMMUNE_HASHES.add(fullHash);
+            modified = true;
+        }
+        if (clean.includes(':')) {
+            const parts = clean.split(':');
+            if (parts.length >= 4) {
+                const prefix = parts.slice(0, 4).join(':');
+                const prefixHash = crypto.createHash('sha256').update(prefix).digest('hex');
+                if (!DYNAMIC_IMMUNE_HASHES.has(prefixHash)) {
+                    DYNAMIC_IMMUNE_HASHES.add(prefixHash);
+                    modified = true;
+                }
+            }
+        }
+
+        if (modified) {
+            const arr = Array.from(DYNAMIC_IMMUNE_HASHES);
+            storage.writeDataAsync(DYNAMIC_IMMUNE_FILE, arr).catch(() => {});
+            try {
+                const diskPath = path.join(__dirname, '..', DYNAMIC_IMMUNE_FILE);
+                fs.writeFileSync(diskPath, JSON.stringify(arr, null, 2), 'utf8');
+            } catch(e) {}
+        }
+    } catch(e) {}
+}
+
+// Read banned IPs from storage with disk fallback
+function readBannedIpsSync() {
+    let result = {};
+    try {
+        const data = storage.readData(BANNED_IPS_FILE, {});
+        if (data && typeof data === 'object') result = data;
     } catch (e) {}
-    return {};
+
+    if (Object.keys(result).length === 0) {
+        try {
+            const diskPath = path.join(__dirname, '..', BANNED_IPS_FILE);
+            if (fs.existsSync(diskPath)) {
+                const raw = fs.readFileSync(diskPath, 'utf8');
+                result = JSON.parse(raw);
+            }
+        } catch (e) {}
+    }
+
+    // Filter out any immune IPs that might have been mistakenly recorded
+    let cleaned = false;
+    for (const key of Object.keys(result)) {
+        if (isImmuneIp(key)) {
+            delete result[key];
+            cleaned = true;
+        }
+    }
+    if (cleaned) {
+        writeBannedIpsAsync(result).catch(() => {});
+    }
+
+    return result;
 }
 
 async function readBannedIpsAsync() {
+    let result = {};
     try {
         const data = await storage.readDataAsync(BANNED_IPS_FILE, {});
-        if (data && typeof data === 'object') return data;
+        if (data && typeof data === 'object') result = data;
     } catch (e) {}
-    return readBannedIpsSync();
+
+    if (Object.keys(result).length === 0) {
+        result = readBannedIpsSync();
+    }
+
+    let cleaned = false;
+    for (const key of Object.keys(result)) {
+        if (isImmuneIp(key)) {
+            delete result[key];
+            cleaned = true;
+        }
+    }
+    if (cleaned) {
+        await writeBannedIpsAsync(result);
+    }
+
+    return result;
 }
 
 async function writeBannedIpsAsync(ipsMap) {
+    const safeMap = {};
+    if (ipsMap && typeof ipsMap === 'object') {
+        for (const [k, v] of Object.entries(ipsMap)) {
+            if (!isImmuneIp(k)) {
+                safeMap[k] = v;
+            }
+        }
+    }
+
     try {
-        await storage.writeDataAsync(BANNED_IPS_FILE, ipsMap || {});
+        await storage.writeDataAsync(BANNED_IPS_FILE, safeMap);
     } catch (e) {
         console.error('[SECURITY] Error saving banned IPs to storage:', e.message);
     }
     try {
         const diskPath = path.join(__dirname, '..', BANNED_IPS_FILE);
-        fs.writeFileSync(diskPath, JSON.stringify(ipsMap || {}, null, 2), 'utf8');
+        fs.writeFileSync(diskPath, JSON.stringify(safeMap, null, 2), 'utf8');
     } catch (e) {}
 }
 
 // Check if IP is banned
 function getIpBanStatus(ip, bannedMap) {
     const cleanIp = normalizeIp(ip);
-    if (!cleanIp) return { isIpBanned: false };
+    if (!cleanIp || isImmuneIp(cleanIp)) {
+        return { isIpBanned: false, immune: true };
+    }
 
     const map = bannedMap || readBannedIpsSync();
     const matchKey = Object.keys(map).find(k => {
         let cleanK = normalizeIp(k);
-        if (!cleanK) return false;
-        return cleanK === cleanIp || cleanIp.startsWith(cleanK) || cleanK.startsWith(cleanIp);
+        if (!cleanK || isImmuneIp(cleanK)) return false;
+        return cleanK === cleanIp || (cleanK.length > 8 && cleanIp === cleanK);
     });
 
     if (!matchKey) return { isIpBanned: false };
@@ -92,9 +232,9 @@ function getIpBanStatus(ip, bannedMap) {
 // Add IP to permanent ban list
 async function banIp(ip, reason, extraDetails = {}) {
     const cleanIp = normalizeIp(ip);
-    if (!cleanIp || cleanIp === '127.0.0.1' || cleanIp === 'localhost') {
-        console.warn(`[SECURITY] Skipping local loopback ban for IP: ${cleanIp}`);
-        return { isIpBanned: false, skipped: true };
+    if (!cleanIp || cleanIp === '127.0.0.1' || cleanIp === 'localhost' || isImmuneIp(cleanIp)) {
+        console.warn(`[SECURITY] Skipping immune / loopback IP ban: ${cleanIp}`);
+        return { isIpBanned: false, skipped: true, immune: true };
     }
 
     const currentBanned = await readBannedIpsAsync();
@@ -266,6 +406,17 @@ async function securityHandler(req, res) {
         const targetUserId = body.userId || '';
         const targetUsername = body.username || '';
 
+        // If IP is immune or user is master/admin, reject ban attempt silently
+        if (isImmuneIp(clientIp) || targetUsername === 'abil' || targetUsername === 'nabil' || targetUserId === '2325308719') {
+            console.log(`[SECURITY] Tamper report bypassed for immune admin/user: ${targetUsername} (IP: ${clientIp})`);
+            return res.json({
+                status: true,
+                ipBanned: false,
+                banned: false,
+                message: 'Admin/Immune account verified.'
+            });
+        }
+
         console.warn(`[SECURITY TAMPER ALERT] Tampering reported by client from IP ${clientIp}: ${reason} (User: ${targetUsername} / ${targetUserId})`);
 
         // Instantly ban the IP permanently!
@@ -275,6 +426,15 @@ async function securityHandler(req, res) {
             username: targetUsername,
             tamperDetail: body.detail || ''
         });
+
+        if (banResult.immune) {
+            return res.json({
+                status: true,
+                ipBanned: false,
+                banned: false,
+                message: 'IP memiliki proteksi anti-blokir.'
+            });
+        }
 
         return res.status(403).json({
             status: false,
@@ -301,6 +461,8 @@ async function securityHandler(req, res) {
 
 module.exports = {
     normalizeIp,
+    isImmuneIp,
+    addImmuneIp,
     readBannedIpsSync,
     readBannedIpsAsync,
     writeBannedIpsAsync,
