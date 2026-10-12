@@ -100,10 +100,7 @@ var Auth = {
                        '&email=' + encodeURIComponent(em || '');
             }
 
-            if (Auth.currentUser && Auth.currentUser.vipTier) {
-                headers['x-claimed-vip-tier'] = Auth.currentUser.vipTier;
-                headers['x-claimed-vip'] = (Auth.currentUser.isPremium || Auth.currentUser.isVip) ? 'true' : 'false';
-            }
+
 
             var res = await fetch(url, {
                 headers: headers,

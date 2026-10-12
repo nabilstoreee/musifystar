@@ -132,7 +132,7 @@
             Security._lastKnownSignature = user.vipSignature || null;
         },
 
-        // Periksa integritas local storage dan objek user
+        // Periksa integritas local storage dan objek user dengan perlindungan zero-false-positive
         verifyIntegrity: function() {
             if (Security._isTriggered) return;
 
@@ -152,32 +152,24 @@
 
                 var claimedVip = Boolean((user.isPremium || user.isVip || (user.vipTier && user.vipTier !== 'none')));
                 
-                // Jika user sebelumnya diverifikasi sebagai non-VIP oleh server, tapi lokal diubah paksa jadi VIP
+                // Jika user di localStorage berstatus VIP namun server belum atau tidak memverifikasi VIP,
+                // sinkronkan kembali dengan data resmi server tanpa memblokir IP pengguna yang sedang mendengarkan musik
                 if (claimedVip && Security._lastKnownGoodVip === false) {
-                    Security.reportTamper('Manipulasi VIP terdeteksi: Akun non-VIP diubah paksa menjadi VIP di local storage.');
-                    return;
-                }
-
-                // Jika user mengklaim VIP tapi belum ada signature, minta sinkronisasi server resmi
-                if (claimedVip && !user.vipSignature && window.Auth && typeof window.Auth.checkSession === 'function') {
-                    if (!Security._isSyncing) {
+                    // Cukup pulihkan ke data server yang sah (non-VIP), jangan blokir IP!
+                    if (window.Auth && typeof window.Auth.checkSession === 'function' && !Security._isSyncing) {
                         Security._isSyncing = true;
                         window.Auth.checkSession().finally(function() {
-                            setTimeout(function() { Security._isSyncing = false; }, 3000);
+                            setTimeout(function() { Security._isSyncing = false; }, 5000);
                         });
                     }
+                    return;
                 }
             } catch(e) {}
         },
 
         // Inisialisasi pengawasan berkala & interceptor
         init: function() {
-            // Jalankan pemeriksaan integritas secara reguler
-            setInterval(function() {
-                Security.verifyIntegrity();
-            }, 3000);
-
-            // Pantau event storage untuk mendeteksi perubahan dari DevTools Application tab
+            // Pantau event storage untuk menyinkronkan status jika ada perubahan antar-tab
             window.addEventListener('storage', function(e) {
                 if (e.key === 'musifystar_auth_user') {
                     Security.verifyIntegrity();
