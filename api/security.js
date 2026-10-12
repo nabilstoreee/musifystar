@@ -289,7 +289,7 @@ const FORBIDDEN_BOT_PATTERNS = [
     /site-sucker/i,
     /sitesucker/i,
     /pagegrabber/i,
-    /wget/i,
+    /\bwget\b/i,
     /python-requests/i,
     /python-urllib/i,
     /aiohttp/i,
@@ -305,9 +305,7 @@ const FORBIDDEN_BOT_PATTERNS = [
     /censys/i,
     /burpcollaborator/i,
     /libwww-perl/i,
-    /go-http-client/i,
-    /phantomjs/i,
-    /headlesschrome/i
+    /go-http-client/i
 ];
 
 function isBotOrScraper(userAgent) {

@@ -1143,24 +1143,8 @@ module.exports = async (req, res) => {
                         Security.addImmuneIp(clientIp);
                     }
 
-                    const claimedVipTier = req.headers['x-claimed-vip-tier'] || (req.query && req.query.claimedVipTier) || (body && body.claimedVipTier);
-                    const claimedVipBool = req.headers['x-claimed-vip'] === 'true' || (req.query && req.query.claimedVip === 'true');
-
-                    // Anti-Tamper Check: Only ban if clearly forged (e.g. non-vip claimed but forbidden tier) and NOT admin and NOT immune
-                    if (!isMasterAdmin && !Security.isImmuneIp(clientIp)) {
-                        if (claimedVipTier === 'permanent' && !vipInfo.isPremium && user.createdAt && (Date.now() - new Date(user.createdAt).getTime() > 60000)) {
-                            await Security.banIp(clientIp, `Percobaan manipulasi status VIP lewat PC/DevTools: mengklaim permanent tanpa izin database.`, {
-                                userId: user.id,
-                                username: user.username
-                            });
-                            return res.status(403).json({
-                                status: false,
-                                ipBanned: true,
-                                banned: true,
-                                message: 'Alamat IP Anda telah diblokir secara permanen karena terdeteksi manipulasi status VIP via DevTools.'
-                            });
-                        }
-                    }
+                    // The server is the absolute authority for VIP status. If the client has outdated VIP state in cache,
+                    // the server simply responds with the true database VIP status (vipInfo), syncing the client safely.
 
                     const vipSig = Security.generateVipSignature(user.id, vipInfo.vipTier, vipInfo.vipExpiresAt);
 
