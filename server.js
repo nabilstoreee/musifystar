@@ -88,40 +88,26 @@ app.use((req, res, next) => {
         return Security.serveCorruptedDummyFile(res);
     }
 
-    // 3. Block Path Traversal and encoded attack payloads
+    // 3. Block Path Traversal on request path only (never check query strings where songs or titles might have ellipsis '...')
     try {
-        const decodedUrl = decodeURIComponent(rawUrl);
-        if (decodedUrl.includes('..') || rawUrl.includes('..') || rawUrl.includes('%2e%2e')) {
+        const decodedPath = decodeURIComponent(rawPath);
+        if (decodedPath.includes('..') || rawPath.includes('..') || rawPath.includes('%2e%2e')) {
             if (!isImmune) {
-                Security.banIp(cleanIp, `Upaya path traversal ilegal: ${rawUrl.slice(0, 50)}`);
+                Security.banIp(cleanIp, `Upaya path traversal ilegal: ${rawPath.slice(0, 50)}`);
             }
             return Security.serveCorruptedDummyFile(res);
         }
     } catch(e) {}
 
-    // 4. Strict Block for system files, database dumps, json data files, and internal code
+    // 4. Strict Block for genuine sensitive system files and backend source code
     const isSensitive = 
         rawPath.startsWith('/.') ||
         rawPath.includes('/.env') ||
         rawPath.endsWith('.env') ||
-        (rawPath.endsWith('.json') && !rawPath.startsWith('/manifest.json')) ||
-        rawPath.includes('community_playlists') ||
-        rawPath.includes('verified_sections') ||
-        rawPath.includes('stream_cache') ||
-        rawPath.includes('package') ||
+        rawPath.includes('/.git') ||
         rawPath.endsWith('.sql') ||
-        rawPath.endsWith('.md') ||
-        rawPath.endsWith('.yml') ||
-        rawPath.endsWith('.yaml') ||
-        rawPath.endsWith('.ts') ||
-        rawPath.endsWith('.map') ||
-        rawPath.endsWith('.lock') ||
-        rawPath.endsWith('.sh') ||
         rawPath.endsWith('.bak') ||
-        rawPath.endsWith('.conf') ||
-        rawPath.endsWith('.config') ||
-        rawPath === '/server.js' ||
-        (rawPath.startsWith('/api/') && rawPath.endsWith('.js'));
+        rawPath === '/server.js';
 
     if (isSensitive) {
         if (!isImmune) {
