@@ -1,0 +1,7 @@
+{
+  "name": "MusifyStar",
+  "description": "MusifyStar Studio - Web Music Player",
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
